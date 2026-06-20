@@ -49,11 +49,11 @@ jsou dostupné na: https://services.cuzk.gov.cz/vfr
 
 **Český úřad zeměměřický a katastrální (ČÚZK)** poskytuje vedle RÚIANu další zásadní datové sady jako otevřená data:
 
-ZABAGED® (Základní báze geografických dat): Digitální topografický model ČR. Obsahuje detailní prostorové informace o budovách (jejich obvody) a silniční či říční síti. Na rozdíl od RÚIANu se ZABAGED zaměřuje čistě na geografickou realitu (jak budova vypadá v terénu), nikoli na její právní/evidenční stav.
+ZABAGED® (Základní báze geografických dat): Digitální topografický model ČR. Obsahuje detailní prostorové informace o budovách (jejich obvody) a silniční či říční síti. Na rozdíl od RÚIANu se ZABAGED zaměřuje čistě na geografickou realitu (jak budova vypadá v terénu), nikoli na její právní/evidenční stav. Formát: SHP / GML
 
-Ortofotomapa ČR: ČÚZK pravidelně aktualizuje letecké snímky celého území státu a poskytuje je jako otevřená data (často skrze prohlížecí služby WMS/WMTS). Historické ortofotomapy jsou neocenitelné pro vizuální ověření, zda budova v daném roce skutečně stála, což můžeš skvěle využít v diskuzi k experimentálnímu ověření.  
+Ortofotomapa ČR: ČÚZK pravidelně aktualizuje letecké snímky celého území státu a poskytuje je jako otevřená data (často skrze prohlížecí služby WMS/WMTS). Historické ortofotomapy lze použít pro vizuální ověření, zda budova v daném roce skutečně stála.  Formát: rastr (WMS/WMTS)
 
-Digitální model terénu (DMR) a povrchu (DMP): Data z laserového skenování (LiDAR), která umožňují analyzovat výškové uspořádání zástavby a terénu.
+Digitální model terénu (DMR) a povrchu (DMP): Data z laserového skenování (LiDAR), která umožňují analyzovat výškové uspořádání zástavby a terénu. Využití: 3D vizualizace zástavby (vytáhnout výšku), Validace počtu podlaží a výšky budov.  Formát: LAS / LAZ (trojrozměrná mračna bodů (X, Y, Z)), Textový grid, Výškový rastr
 
 ---
 
@@ -67,5 +67,7 @@ další dostupná geodata:
 - Copernicus (Satelity Sentinel): Evropský program, jehož družice (především Sentinel-2) snímají Zemi každých několik dní v různých spektrech. Jsou ideální pro analýzu rozšiřování městských oblastí (tzv. urban sprawl) nebo detekci úbytku zeleně na úkor zástavby.
 
 - Urban Atlas / Corine Land Cover: Evropské projekty (v rámci služby Copernicus Land Monitoring Service), které poskytují hotové klasifikované mapy využití území (Land Use/Land Cover). Sledují, jak se mění podíl zastavěných ploch ku zemědělské půdě či lesům v čase.
-  
+
+ další dostupná data:
+ 
 - Český statistický úřad (ČSÚ): Publikuje výsledky Sčítání lidu, domů a bytů, data jsou prostorově agregovaná (např. na úrovni základních sídelních jednotek – ZSJ). Obsahují socioekonomické informace (např. věková struktura obyvatel v dané lokalitě, obydlenost domů)
