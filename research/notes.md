@@ -1,5 +1,7 @@
 **RÚIAN (Registr územní identifikace, adres a nemovitostí)**
 
+**popis**
+
 Registr územní identifikace, adres a nemovitostí (RÚIAN) je jedním ze základních registrů veřejné správy. Je veřejným seznamem, nevede žádné osobní údaje a je jedinečným zdrojem adres nejen pro veřejnou správu. Obsahuje také údaje o územních prvcích, územně evidenčních jednotkách a jejich vzájemných vazbách.
 https://cuzk.gov.cz/ruian/RUIAN.aspx
 
@@ -28,6 +30,9 @@ https://cuzk.gov.cz/ruian/RUIAN/Informace-o-RUIAN.aspx
 
 GML = XML pro geografické aplikace
 
+Vybraná data RÚIAN poskytovaná po obcích ve formátu SHP (RUIAN-OBCE-SHP): 
+https://services.cuzk.gov.cz/shp/obec/epsg-5514/
+
 dokument popisující formát VFR:
 https://cuzk.gov.cz/ruian/Poskytovani-udaju-ISUI-RUIAN-VDP/Vymenny-format-RUIAN-(VFR)/DL058RR2-v5-0-Struktura-a-popis-VFR_final.aspx
 
@@ -44,6 +49,8 @@ Změnové soubory jsou generovány každý den. Ovšem pouze v případě, kdy j
 tj. prázdný změnový soubor se nevytváří. 
 
 jsou dostupné na: https://services.cuzk.gov.cz/vfr
+
+popis webových služeb: https://cuzk.gov.cz/ruian/Poskytovani-udaju-ISUI-RUIAN-VDP/Vymenny-format-RUIAN-(VFR)/Popis-WS-pro-VFR-E39-E40v2-0.aspx
 
 ---
 
