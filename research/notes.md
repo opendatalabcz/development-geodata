@@ -78,3 +78,9 @@ další dostupná geodata:
  další dostupná data:
  
 - Český statistický úřad (ČSÚ): Publikuje výsledky Sčítání lidu, domů a bytů, data jsou prostorově agregovaná (např. na úrovni základních sídelních jednotek – ZSJ). Obsahují socioekonomické informace (např. věková struktura obyvatel v dané lokalitě, obydlenost domů)
+
+
+
+https://geoportal.gov.cz/web/guest/map
+
+https://apl.czso.cz/

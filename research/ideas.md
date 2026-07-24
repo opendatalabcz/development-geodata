@@ -1,8 +1,10 @@
-geometrie z ruian
-projít měsíční stavové soubory - hledat změny
-historické změnové věty?
+získání dat
+geometrie i atributy z RÚIAN - historického souboru
+u zaniklých budov stáhnout příslušný soubor z archivu (od 2015)
+pro dříve zaniklé budovy zkusit použít OSM
 
-1. do tabulky ukládat všechny budovy z každého souboru - duplikace a velké množství dat
-2. každé budově přidat atributy od, do a do tabulky uložit jen při změně
+změna geometrie?
+porovnání polygonů z měsíčních souborů z archivu 
+
 
 aktualizace dat - jednou za 2 měsíce (požadavek na změnový soubor: Datum, od kterého jsou požadovány změny, nesmí být starší než 2 měsíce.)
