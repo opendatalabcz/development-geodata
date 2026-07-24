@@ -1,0 +1,25 @@
+﻿sloupec,dtype,pocet_hodnot,chybi_pocet,chybi_procent,pocet_unikatnich,ukazka_hodnoty
+IsknBudovaId,str,2,2106,99.9,2,381052210
+Geometrie,str,320,1788,84.8,315,POINT (-756761.77 -1044034.95)
+Dokonceni,datetime64[us],1143,965,45.8,366,1981-04-18 00:00:00
+PodlahovaPlocha,float64,1223,885,42.0,251,682.0
+ObestavenyProstor,float64,1290,818,38.8,411,2096.0
+ZastavenaPlocha,float64,1364,744,35.3,215,199.0
+DruhKonstrukceKod,str,1521,587,27.8,8,10
+VybaveniVytahemKod,str,1552,556,26.4,3,9
+PocetPodlazi,float64,1704,404,19.2,7,1.0
+PripojeniPlynKod,str,1874,234,11.1,5,8
+ZpusobVytapeniKod,str,1884,224,10.6,8,9
+PripojeniKanalizaceKod,str,1924,184,8.7,6,8
+PripojeniVodovodKod,str,1925,183,8.7,3,9
+PocetBytu,float64,2006,102,4.8,16,1.0
+ZpusobVyuzitiKod,str,2037,71,3.4,16,3
+CislaDomovni.CisloDomovni,str,2043,65,3.1,1041,1
+CastObce.Kod,str,2043,65,3.1,1,55468
+IdentifikacniParcela.Id,str,2053,55,2.6,1107,1304146210
+Kod,str,2108,0,0.0,1112,6398332
+TypStavebnihoObjektuKod,string,2108,0,0.0,3,1
+PlatiDo,datetime64[us],2108,0,0.0,330,2013-11-19 00:00:00
+PlatiOd,datetime64[us],2108,0,0.0,450,2011-07-01 00:00:00
+_gml_id,str,2108,0,0.0,2108,SO.6398332.20110701
+GlobalniIdNavrhuZmeny,str,2108,0,0.0,755,0

@@ -1,0 +1,18 @@
+﻿sloupec,dtype,pocet_hodnot,chybi_pocet,chybi_procent,pocet_unikatnich,ukazka_hodnoty
+MluvnickeCharakteristiky.Pad3,str,2,1,33.3,1,Chýni
+MluvnickeCharakteristiky.Pad2,str,2,1,33.3,1,Chýně
+MluvnickeCharakteristiky.Pad4,str,2,1,33.3,1,Chýni
+MluvnickeCharakteristiky.Pad6,str,2,1,33.3,1,Chýni
+MluvnickeCharakteristiky.Pad7,str,2,1,33.3,1,Chýní
+Kod,str,3,0,0.0,1,539309
+Nazev,str,3,0,0.0,1,Chýně
+Okres.Kod,str,3,0,0.0,1,3210
+StatusKod,str,3,0,0.0,2,2
+VlajkaText,str,3,0,0.0,1,"List tvoří tři svislé pruhy, černý, zubatý žlutý a modrý, v poměru 2:1:5. V černém pruhu tři žluté lilie pod sebou. Žlutý pruh má čtyři obdélníkové zuby k vlajícímu okraji a tři stejné mezery. V modrém pruhu dva zkřížené žluté gotické klíče. Poměr šířky k délce listu je 2:3."
+GlobalniIdNavrhuZmeny,str,3,0,0.0,3,0
+PlatiDo,str,3,0,0.0,3,2011-07-01T00:00:00
+PlatiOd,str,3,0,0.0,3,2011-07-01T00:00:00
+Pou.Kod,str,3,0,0.0,1,426
+_gml_id,str,3,0,0.0,3,OB.539309.1
+ZnakText,str,3,0,0.0,1,"Ve zlatém štítě pod černou hlavou se třemi zlatými liliemi modrá zvýšená hradba se třemi stínkami, v ní zkřížené zlaté gotické klíče."
+NutsLau,str,3,0,0.0,1,CZ020A539309

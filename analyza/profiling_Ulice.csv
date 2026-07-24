@@ -1,0 +1,9 @@
+﻿sloupec,dtype,pocet_hodnot,chybi_pocet,chybi_procent,pocet_unikatnich,ukazka_hodnoty
+Geometrie,float64,0,279,100.0,0,
+Kod,str,279,0,0.0,97,430811
+Obec.Kod,str,279,0,0.0,1,539309
+Nazev,str,279,0,0.0,98,1. máje
+PlatiOd,str,279,0,0.0,33,2011-07-01T00:00:00
+PlatiDo,str,279,0,0.0,30,2014-02-02T00:00:00
+GlobalniIdNavrhuZmeny,str,279,0,0.0,61,0
+_gml_id,str,279,0,0.0,279,UL.430811.20110701

@@ -1,0 +1,11 @@
+﻿sloupec,dtype,pocet_hodnot,chybi_pocet,chybi_procent,pocet_unikatnich,ukazka_hodnoty
+DatumVzniku,str,4,2,33.3,2,1970-12-01T00:00:00
+Kod,str,6,0,0.0,2,55468
+Nazev,str,6,0,0.0,2,Chýně
+KatastralniUzemi.Kod,str,6,0,0.0,1,655465
+PlatiDo,str,6,0,0.0,3,2022-05-25T00:00:00
+PlatiOd,str,6,0,0.0,3,2015-06-05T00:00:00
+GlobalniIdNavrhuZmeny,str,6,0,0.0,4,731625
+Vymera,str,6,0,0.0,4,4691728
+CharakterZsjKod,str,6,0,0.0,1,11
+_gml_id,str,6,0,0.0,6,ZJ.55468.1

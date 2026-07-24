@@ -1,0 +1,11 @@
+﻿sloupec,dtype,pocet_hodnot,chybi_pocet,chybi_procent,pocet_unikatnich,ukazka_hodnoty
+Geometrie,str,80,1975,96.1,80,POINT (-756782.17 -1044132.81)
+Ulice.Kod,str,1952,103,5.0,83,430960
+Psc,str,2052,3,0.1,3,25301
+Kod,str,2055,0,0.0,851,6437761
+CisloDomovni,str,2055,0,0.0,825,1
+StavebniObjekt.Kod,str,2055,0,0.0,844,6398332
+PlatiOd,str,2055,0,0.0,199,2011-07-01T00:00:00
+PlatiDo,str,2055,0,0.0,111,2013-12-03T00:00:00
+GlobalniIdNavrhuZmeny,str,2055,0,0.0,353,0
+_gml_id,str,2055,0,0.0,2055,AD.6437761.20110701
