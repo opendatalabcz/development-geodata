@@ -1,0 +1,32 @@
+﻿sloupec,dtype,pocet_hodnot,chybi_pocet,chybi_procent,pocet_unikatnich,ukazka_hodnoty
+ZpusobyOchrany.ZpusobOchrany.TypOchranyKod,str,3,1336,99.8,1,2
+ZpusobyOchrany.ZpusobOchrany.IdTransakce,str,3,1336,99.8,1,5012561
+ZpusobyOchrany.ZpusobOchrany.RizeniId,str,3,1336,99.8,1,94526295010
+ZpusobyOchrany.ZpusobOchrany.Kod,str,3,1336,99.8,1,19
+PodlahovaPlocha,float64,1009,330,24.6,299,218.0
+ObestavenyProstor,float64,1036,303,22.6,486,798.0
+CislaDomovni.CisloDomovni,str,1135,204,15.2,1129,1
+CastObce.Kod,str,1135,204,15.2,1,55468
+Dokonceni,datetime64[us],1232,107,8.0,508,1919-12-31 00:00:00
+DruhKonstrukceKod,string,1234,105,7.8,15,10
+DruhKonstrukceKod_desc,str,1234,105,7.8,15,"Kámen, cihly, tvárnice vč. kombinací"
+PocetPodlazi,float64,1236,103,7.7,5,1.0
+PripojeniKanalizaceKod,str,1242,97,7.2,5,1
+PripojeniPlynKod,str,1244,95,7.1,4,9
+PripojeniVodovodKod,str,1244,95,7.1,3,1
+ZpusobVytapeniKod,str,1244,95,7.1,12,9
+VybaveniVytahemKod,str,1247,92,6.9,3,2
+PocetBytu,float64,1251,88,6.6,17,1.0
+ZastavenaPlocha,float64,1263,76,5.7,277,91.0
+IsknBudovaId,str,1324,15,1.1,1322,381092210
+IdentifikacniParcela.Id,str,1339,0,0.0,1337,1304146210
+PlatiOd,datetime64[us],1339,0,0.0,227,2023-12-23 00:00:00
+TypStavebnihoObjektuKod,string,1339,0,0.0,3,1
+IdTransakce,str,1339,0,0.0,371,5297922
+GlobalniIdNavrhuZmeny,str,1339,0,0.0,351,3269822
+ZpusobVyuzitiKod,string,1339,0,0.0,15,7
+Kod,str,1339,0,0.0,1339,6398332
+_gml_id,str,1339,0,0.0,1339,SO.6398332
+Geometrie,str,1339,0,0.0,1339,POINT (-756726.35 -1044026.5)
+TypStavebnihoObjektuKod_desc,str,1339,0,0.0,3,budova s číslem popisným
+ZpusobVyuzitiKod_desc,str,1339,0,0.0,15,rodinný dům
