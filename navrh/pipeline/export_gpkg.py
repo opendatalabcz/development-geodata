@@ -5,23 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import geopandas as gpd
-import pandas as pd
 
-
-def _gpkg_safe(df: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """Připraví GeoDataFrame na zápis do GeoPackage (bez seznamů/objektů v buňkách)."""
-    df = df.copy()
-    for col in df.columns:
-        if col == "geometry":
-            continue
-        if df[col].map(lambda v: isinstance(v, list)).any():
-            df[col] = df[col].apply(lambda v: ", ".join(v) if isinstance(v, list) else v)
-        if pd.api.types.is_datetime64_any_dtype(df[col]):
-            # GeoPackage/OGR datetime chce naivní nebo ISO string; necháme datetime,
-            # pyogrio si s tím poradí, jen odstraníme případnou timezone
-            if getattr(df[col].dt, "tz", None) is not None:
-                df[col] = df[col].dt.tz_localize(None)
-    return df
+from ._util import flatten_for_output as _gpkg_safe
 
 
 def write_geopackage(

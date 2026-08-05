@@ -13,6 +13,7 @@ import pandas as pd
 
 from .changefile import build_changefile, changefile_summary
 from .export_gpkg import write_geopackage
+from .export_tabular import write_csv_and_geojson
 from .vfr_parser import parse_stavebni_objekty
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -36,6 +37,9 @@ def main() -> None:
     )
 
     write_geopackage(OUT_DIR / "chyne_zmeny.gpkg", stavebni_objekty, zmeny)
+
+    write_csv_and_geojson(stavebni_objekty, OUT_DIR, "stavebni_objekty")
+    write_csv_and_geojson(zmeny, OUT_DIR, "zmeny")
 
 
 if __name__ == "__main__":

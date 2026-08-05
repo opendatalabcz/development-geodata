@@ -5,5 +5,7 @@ Moduly:
                    geometrií (Point / Polygon / MultiPolygon)
     changefile   – porovnání dvou po sobě jdoucích snapshotů a sestavení
                    změnového souboru (nové / zaniklé / změněné objekty)
-    export_gpkg  – uložení snapshotů a změnového souboru do GeoPackage
+    export_gpkg    – uložení snapshotů a změnového souboru do GeoPackage
+    export_tabular – export do CSV (atributy) + GeoJSON (geometrie),
+                     propojitelné přes sloupec `Kod`
 """
