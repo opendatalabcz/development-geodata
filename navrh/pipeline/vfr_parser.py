@@ -199,9 +199,7 @@ class VfrHlavicka:
     datum: pd.Timestamp | None
 
 
-def parse_hlavicka(xml_path: str | Path) -> VfrHlavicka:
-    tree = etree.parse(str(xml_path))
-    root = tree.getroot()
+def _hlavicka_from_root(root) -> VfrHlavicka:
     ns = root.nsmap.copy()
     hlavicka = root.find("vf:Hlavicka", ns)
     info = {_local(c.tag): _text(c) for c in hlavicka if isinstance(c.tag, str)}
@@ -213,32 +211,54 @@ def parse_hlavicka(xml_path: str | Path) -> VfrHlavicka:
     )
 
 
-def parse_stavebni_objekty(xml_path: str | Path, snapshot_datum=None) -> gpd.GeoDataFrame:
+def parse_hlavicka(xml_path: str | Path) -> VfrHlavicka:
+    tree = etree.parse(str(xml_path))
+    return _hlavicka_from_root(tree.getroot())
+
+
+def parse_stavebni_objekty(xml_source, snapshot_datum=None, source_name: str | None = None) -> gpd.GeoDataFrame:
     """Naparsuje StavebniObjekty z VFR XML (OB_UKSH) do GeoDataFrame.
 
     Parameters
     ----------
-    xml_path:
-        cesta k VFR XML souboru (typ OB_UKSH – úplná kompletní datová sada)
+    xml_source:
+        cesta k VFR XML souboru (str/Path), NEBO file-like objekt s bajty
+        (např. `io.BytesIO` staženého a rozbaleného souboru – nic se
+        nemusí ukládat na disk)
     snapshot_datum:
         datum snapshotu; pokud None, vezme se z hlavičky souboru (vf:Hlavicka/Datum)
+    source_name:
+        jméno zdrojového souboru pro sloupec `zdrojovy_soubor`; u cesty se
+        odvodí automaticky, u file-like objektu je potřeba dodat
     """
-    xml_path = Path(xml_path)
-    tree = etree.parse(str(xml_path))
+    if isinstance(xml_source, (str, Path)):
+        xml_path = Path(xml_source)
+        tree = etree.parse(str(xml_path))
+        source_name = source_name or xml_path.name
+    else:
+        tree = etree.parse(xml_source)
+        source_name = source_name or "?"
+
     root = tree.getroot()
     ns = root.nsmap.copy()
 
     if snapshot_datum is None:
-        snapshot_datum = parse_hlavicka(xml_path).datum
+        snapshot_datum = _hlavicka_from_root(root).datum
 
     data_el = root.find("vf:Data", ns)
     stavebni_objekty = data_el.findall("vf:StavebniObjekty/vf:StavebniObjekt", ns)
 
     rows = [_stavebni_objekt_to_row(el) for el in stavebni_objekty]
-    df = pd.DataFrame(rows)
+    if not rows:
+        cols = ["_gml_id", *SCALAR_FIELDS, "CislaDomovni", "IdentifikacniParcely",
+                "CastObceKod", "definicni_bod", "geometry", "ma_polygon"]
+        df = pd.DataFrame(columns=cols)
+    else:
+        df = pd.DataFrame(rows)
     df = _coerce_types(df)
     df["snapshot_datum"] = snapshot_datum
-    df["zdrojovy_soubor"] = xml_path.name
+    df["zdrojovy_soubor"] = source_name
 
     gdf = gpd.GeoDataFrame(df, geometry="geometry", crs=CRS_VFR)
+    gdf["definicni_bod"] = gpd.GeoSeries(gdf["definicni_bod"], crs=CRS_VFR)
     return gdf
