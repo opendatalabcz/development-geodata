@@ -1,7 +1,12 @@
-"""Demo spuštění pipeline na ukázkových souborech Chýně (2016 vs 2026).
+"""PŘEDCHOZÍ ITERACE (viz navrh/pipeline/old) – nahrazeno history.py.
+
+Demo spuštění na ukázkových souborech Chýně (2016 vs 2026): párové porovnání
+dvou koncových snapshotů. Nahrazeno obecnějším a přesnějším přístupem
+(SCD2 verzovaná historie přes všechny měsíční snapshoty, viz
+navrh/pipeline/history.py + build_pilot_obec.py). Ponecháno pro referenci.
 
 Použití (z kořene repozitáře):
-    python -m navrh.pipeline.build_demo
+    python -m navrh.pipeline.old.build_demo
 """
 
 from __future__ import annotations
@@ -12,13 +17,13 @@ import geopandas as gpd
 import pandas as pd
 
 from .changefile import build_changefile, changefile_summary
-from .export_gpkg import write_geopackage
-from .export_tabular import write_csv_and_geojson
-from .vfr_parser import parse_stavebni_objekty
+from ..export_gpkg import write_geopackage
+from ..export_tabular import write_csv_and_geojson
+from ..vfr_parser import parse_stavebni_objekty
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 ANALYZA_DIR = REPO_ROOT / "analyza"
-OUT_DIR = REPO_ROOT / "navrh" / "vystup"
+OUT_DIR = REPO_ROOT / "navrh" / "vystup" / "old"
 
 
 def main() -> None:

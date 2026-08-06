@@ -1,9 +1,14 @@
-"""Připraví odlehčený JSON podklad pro interaktivní demo mapu (Artifact) –
+"""JEN PRO DEMO (viz navrh/pipeline/demo) – není součástí hlavní pipeline.
+
+Připraví odlehčený JSON podklad pro interaktivní demo mapu (Artifact) –
 aktuálně platné stavební objekty obarvené podle roku dokončení, s popisy
 kódů z číselníků ČÚZK.
 
+Čte aktuální výstup hlavní pipeline (navrh/vystup/539309_historie.gpkg),
+výsledek ukládá zvlášť do navrh/vystup/demo/.
+
 Použití (z kořene repozitáře):
-    python -m navrh.pipeline.export_demo_map
+    python -m navrh.pipeline.demo.export_demo_map
 """
 
 from __future__ import annotations
@@ -14,9 +19,10 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 ANALYZA_DIR = REPO_ROOT / "analyza"
 VYSTUP_DIR = REPO_ROOT / "navrh" / "vystup"
+DEMO_OUT_DIR = VYSTUP_DIR / "demo"
 
 LOOKUP_SOURCES = {
     "TypStavebnihoObjektuKod": ANALYZA_DIR / "CS_TYP_STAVEBNIHO_OBJEKTU.csv",
@@ -112,4 +118,4 @@ def build_demo_map_json(historie_gpkg: Path, out_json: Path) -> None:
 
 
 if __name__ == "__main__":
-    build_demo_map_json(VYSTUP_DIR / "539309_historie.gpkg", VYSTUP_DIR / "539309_dokonceni.json")
+    build_demo_map_json(VYSTUP_DIR / "539309_historie.gpkg", DEMO_OUT_DIR / "539309_dokonceni.json")

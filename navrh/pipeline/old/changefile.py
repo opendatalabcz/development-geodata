@@ -1,4 +1,6 @@
-"""Porovnání dvou po sobě jdoucích snapshotů stavebních objektů a sestavení
+"""PŘEDCHOZÍ ITERACE (viz navrh/pipeline/old) – nahrazeno history.py.
+
+Porovnání dvou po sobě jdoucích snapshotů stavebních objektů a sestavení
 změnového souboru (changefile).
 
 Princip: RÚIAN VFR "změnové soubory" obsahují celý prvek, pokud se změnil
@@ -9,6 +11,10 @@ měsíčních stavů (OB_UKSH) podle stabilního klíče `Kod`:
     - "zanikly"  – Kod je jen ve starším snapshotu (zanikl / vypadl ze sady)
     - "zmenen"   – Kod je v obou, ale liší se aspoň jeden atribut nebo geometrie
     - "beze_zmeny" – beze změny (do finálního changefile se běžně nezahrnuje)
+
+Funguje jen pro dva koncové body; pro víc snapshotů najednou (celá měsíční
+historie) použij `history.HistoryState`, které totéž dělá průběžně a
+verzovaně.
 """
 
 from __future__ import annotations
@@ -16,7 +22,7 @@ from __future__ import annotations
 import geopandas as gpd
 import pandas as pd
 
-from .vfr_parser import VOLATILE_FIELDS
+from ..vfr_parser import VOLATILE_FIELDS
 
 # sloupce, které do porovnání "věcné" změny nevstupují
 _NON_ATTR_COLS = {
