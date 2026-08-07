@@ -23,33 +23,34 @@ GML_NS = "{http://www.opengis.net/gml/3.2}"
 CRS_VFR = "EPSG:5514"
 
 # Atributy StavebniObjekt, které bereme jako skalární sloupce (mimo geometrii).
-# Klíč = výsledný název sloupce, hodnota = lokální jméno XML elementu.
+# Klíč = výsledný název sloupce (anglicky, snake_case), hodnota = lokální
+# jméno XML elementu dle schématu VFR (to zůstává beze změny).
 SCALAR_FIELDS = {
-    "Kod": "Kod",
-    "TypStavebnihoObjektuKod": "TypStavebnihoObjektuKod",
-    "ZpusobVyuzitiKod": "ZpusobVyuzitiKod",
-    "PlatiOd": "PlatiOd",
-    "Dokonceni": "Dokonceni",
-    "DruhKonstrukceKod": "DruhKonstrukceKod",
-    "PocetBytu": "PocetBytu",
-    "PocetPodlazi": "PocetPodlazi",
-    "PripojeniKanalizaceKod": "PripojeniKanalizaceKod",
-    "PripojeniPlynKod": "PripojeniPlynKod",
-    "PripojeniVodovodKod": "PripojeniVodovodKod",
-    "VybaveniVytahemKod": "VybaveniVytahemKod",
-    "ZastavenaPlocha": "ZastavenaPlocha",
-    "ZpusobVytapeniKod": "ZpusobVytapeniKod",
-    "GlobalniIdNavrhuZmeny": "GlobalniIdNavrhuZmeny",
-    "IdTransakce": "IdTransakce",
-    "IsknBudovaId": "IsknBudovaId",
+    "code": "Kod",
+    "building_type_code": "TypStavebnihoObjektuKod",
+    "usage_type_code": "ZpusobVyuzitiKod",
+    "record_valid_from": "PlatiOd",
+    "completion_date": "Dokonceni",
+    "construction_type_code": "DruhKonstrukceKod",
+    "unit_count": "PocetBytu",
+    "floor_count": "PocetPodlazi",
+    "sewage_connection_code": "PripojeniKanalizaceKod",
+    "gas_connection_code": "PripojeniPlynKod",
+    "water_connection_code": "PripojeniVodovodKod",
+    "elevator_code": "VybaveniVytahemKod",
+    "built_up_area": "ZastavenaPlocha",
+    "heating_type_code": "ZpusobVytapeniKod",
+    "change_proposal_global_id": "GlobalniIdNavrhuZmeny",
+    "transaction_id": "IdTransakce",
+    "iskn_building_id": "IsknBudovaId",
 }
 
-NUMERIC_FIELDS = ("PocetBytu", "PocetPodlazi", "ZastavenaPlocha")
-DATE_FIELDS = ("PlatiOd", "Dokonceni")
+NUMERIC_FIELDS = ("unit_count", "floor_count", "built_up_area")
+DATE_FIELDS = ("record_valid_from", "completion_date")
 
 # Atributy, které se u "stejného" objektu běžně mění bez skutečné věcné změny
 # (transakční metadata) – při diffování je ignorujeme, viz changefile.py.
-VOLATILE_FIELDS = ("PlatiOd", "GlobalniIdNavrhuZmeny", "IdTransakce")
+VOLATILE_FIELDS = ("record_valid_from", "change_proposal_global_id", "transaction_id")
 
 
 def _local(tag: str) -> str:
@@ -149,7 +150,7 @@ def _cast_obce_kod(el) -> str | None:
 
 
 def _stavebni_objekt_to_row(el) -> dict:
-    row: dict = {"_gml_id": el.get(f"{GML_NS}id")}
+    row: dict = {"gml_id": el.get(f"{GML_NS}id")}
 
     by_local = {}
     for c in el:
@@ -159,9 +160,9 @@ def _stavebni_objekt_to_row(el) -> dict:
         els = by_local.get(local_name)
         row[col_name] = _text(els[0]) if els else None
 
-    row["CislaDomovni"] = _cisla_domovni(el)
-    row["IdentifikacniParcely"] = _identifikacni_parcely(el)
-    row["CastObceKod"] = _cast_obce_kod(el)
+    row["house_numbers"] = _cisla_domovni(el)
+    row["parcel_ids"] = _identifikacni_parcely(el)
+    row["district_code"] = _cast_obce_kod(el)
 
     geometrie_els = by_local.get("Geometrie")
     bod = hranice = None
@@ -174,9 +175,9 @@ def _stavebni_objekt_to_row(el) -> dict:
             elif local_name == "OriginalniHranice":
                 hranice = parse_original_hranice(c)
 
-    row["definicni_bod"] = bod
+    row["reference_point"] = bod
     row["geometry"] = hranice if hranice is not None else bod
-    row["ma_polygon"] = hranice is not None
+    row["has_polygon"] = hranice is not None
     return row
 
 
@@ -228,7 +229,7 @@ def parse_stavebni_objekty(xml_source, snapshot_datum=None, source_name: str | N
     snapshot_datum:
         datum snapshotu; pokud None, vezme se z hlavičky souboru (vf:Hlavicka/Datum)
     source_name:
-        jméno zdrojového souboru pro sloupec `zdrojovy_soubor`; u cesty se
+        jméno zdrojového souboru pro sloupec `source_file`; u cesty se
         odvodí automaticky, u file-like objektu je potřeba dodat
     """
     if isinstance(xml_source, (str, Path)):
@@ -250,15 +251,15 @@ def parse_stavebni_objekty(xml_source, snapshot_datum=None, source_name: str | N
 
     rows = [_stavebni_objekt_to_row(el) for el in stavebni_objekty]
     if not rows:
-        cols = ["_gml_id", *SCALAR_FIELDS, "CislaDomovni", "IdentifikacniParcely",
-                "CastObceKod", "definicni_bod", "geometry", "ma_polygon"]
+        cols = ["gml_id", *SCALAR_FIELDS, "house_numbers", "parcel_ids",
+                "district_code", "reference_point", "geometry", "has_polygon"]
         df = pd.DataFrame(columns=cols)
     else:
         df = pd.DataFrame(rows)
     df = _coerce_types(df)
-    df["snapshot_datum"] = snapshot_datum
-    df["zdrojovy_soubor"] = source_name
+    df["snapshot_date"] = snapshot_datum
+    df["source_file"] = source_name
 
     gdf = gpd.GeoDataFrame(df, geometry="geometry", crs=CRS_VFR)
-    gdf["definicni_bod"] = gpd.GeoSeries(gdf["definicni_bod"], crs=CRS_VFR)
+    gdf["reference_point"] = gpd.GeoSeries(gdf["reference_point"], crs=CRS_VFR)
     return gdf

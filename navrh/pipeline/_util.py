@@ -9,8 +9,8 @@ import pandas as pd
 def flatten_for_output(df):
     """Připraví atributy na zápis do formátů, které neumí sloupce se seznamy
     ani víc než jednu geometrii (CSV, GPKG, GeoJSON) – seznamy (např.
-    `zmenena_pole`) spojí do textu odděleného čárkou, vedlejší geometrické
-    sloupce (např. `definicni_bod`) převede na WKT text a odstraní timezone
+    `changed_fields`) spojí do textu odděleného čárkou, vedlejší geometrické
+    sloupce (např. `reference_point`) převede na WKT text a odstraní timezone
     z datumových sloupců."""
     df = df.copy()
     for col in df.columns:

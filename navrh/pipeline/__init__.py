@@ -11,7 +11,7 @@ Aktuální moduly:
                      dostupné historie jedné obce
     export_gpkg    – uložení do GeoPackage
     export_tabular – export do CSV (atributy) + GeoJSON (geometrie),
-                     propojitelné přes sloupec `Kod`
+                     propojitelné přes sloupec `code`
     _util          – sdílené pomocné funkce pro export
 
 Podsložky:
