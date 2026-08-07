@@ -26,9 +26,9 @@ def write_geopackage(
     if out_path.exists():
         out_path.unlink()
 
-    so.to_file(out_path, layer="stavebni_objekty", driver="GPKG")
-    zm.to_file(out_path, layer="zmeny", driver="GPKG")
+    so.to_file(out_path, layer="building_objects", driver="GPKG")
+    zm.to_file(out_path, layer="changes", driver="GPKG")
 
     print(f"Uloženo: {out_path}")
-    print(f"  vrstva 'stavebni_objekty': {len(so)} záznamů")
-    print(f"  vrstva 'zmeny':            {len(zm)} záznamů")
+    print(f"  vrstva 'building_objects': {len(so)} záznamů")
+    print(f"  vrstva 'changes':          {len(zm)} záznamů")

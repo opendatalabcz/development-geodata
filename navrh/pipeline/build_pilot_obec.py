@@ -25,8 +25,8 @@ KOD_OBEC = "539309"  # Chýně
 DELAY_S = 1.0
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = REPO_ROOT / "navrh" / "data" / "historie"
-OUT_DIR = REPO_ROOT / "navrh" / "vystup"
+DATA_DIR = REPO_ROOT / "navrh" / "data" / "history"
+OUT_DIR = REPO_ROOT / "navrh" / "output"
 STATE_PATH = DATA_DIR / f"{KOD_OBEC}.parquet"
 
 
@@ -34,7 +34,7 @@ def main() -> None:
     months = month_range()  # 201508 .. aktuální měsíc
 
     state = HistoryState.load(STATE_PATH)
-    already_done = set(state.zpracovane_mesice)
+    already_done = set(state.processed_months)
     todo = [m for m in months if m not in already_done]
 
     print(f"Obec {KOD_OBEC}: {len(months)} měsíců celkem, "
@@ -47,7 +47,7 @@ def main() -> None:
             state.ingest(result.gdf, yyyymm)
             ok_count += 1
         elif result.error == "soubor pro tento měsíc neexistuje":
-            state.zpracovane_mesice.append(yyyymm)
+            state.processed_months.append(yyyymm)
             missing_count += 1
         else:
             print(f"  [{yyyymm}] CHYBA: {result.error}", file=sys.stderr)
@@ -67,13 +67,13 @@ def main() -> None:
     state.save(STATE_PATH)
 
     hist = state.to_geodataframe()
-    print(f"\nHotovo. Historie: {len(hist)} řádků, {hist['Kod'].nunique()} unikátních objektů.")
-    print(hist["duvod_konce"].value_counts(dropna=False))
+    print(f"\nHotovo. Historie: {len(hist)} řádků, {hist['code'].nunique()} unikátních objektů.")
+    print(hist["end_reason"].value_counts(dropna=False))
 
-    write_geopackage(OUT_DIR / f"{KOD_OBEC}_historie.gpkg",
-                      hist, hist[hist["duvod_konce"].notna()])
-    write_csv_and_geojson(hist, OUT_DIR, f"{KOD_OBEC}_historie",
-                           keep_cols=["Kod", "verze_od", "verze_do", "duvod_konce"])
+    write_geopackage(OUT_DIR / f"{KOD_OBEC}_history.gpkg",
+                      hist, hist[hist["end_reason"].notna()])
+    write_csv_and_geojson(hist, OUT_DIR, f"{KOD_OBEC}_history",
+                           keep_cols=["code", "valid_from", "valid_to", "end_reason"])
 
 
 if __name__ == "__main__":

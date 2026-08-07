@@ -25,7 +25,7 @@ from .vfr_parser import parse_stavebni_objekty
 BASE_URL = "https://services.cuzk.gov.cz/vfr"
 USER_AGENT = (
     "bakalarka-ruian-pipeline/0.1 "
-    "(studentsky vyzkumny projekt, kontakt: patockova.karolina11@gmail.com)"
+    "CVUT FIT"
 )
 
 _FILE_ROW_RE = re.compile(r'<a href="([^"]+)">\1</a>')

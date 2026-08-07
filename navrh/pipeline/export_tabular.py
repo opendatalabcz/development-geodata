@@ -2,11 +2,11 @@
 
 - CSV  – čistě atributy (bez geometrie), pro pohled v Excelu/pandas
          (`df.describe()`, filtrování, pivotky…)
-- GeoJSON – čistě geometrie + klíč `Kod` (a pár identifikačních atributů),
+- GeoJSON – čistě geometrie + klíč `code` (a pár identifikačních atributů),
          v EPSG:4326 (WGS84), aby šlo otevřít v QGIS/geojson.io/Leafletu
 
-Obě sady jde propojit přes sloupec `Kod` (u vrstvy `stavebni_objekty` navíc
-přes `snapshot_datum`, protože jeden `Kod` se v ní objevuje 2× – jednou pro
+Obě sady jde propojit přes sloupec `code` (u vrstvy `building_objects` navíc
+přes `snapshot_date`, protože jeden `code` se v ní objevuje 2× – jednou pro
 každý zpracovaný snapshot).
 """
 
@@ -43,14 +43,14 @@ def write_geojson(
     ----------
     keep_cols:
         které atributové sloupce si GeoJSON ponechá vedle geometrie (výchozí:
-        `Kod` a `typ_zmeny`/`snapshot_datum`, pokud existují) – zbytek atributů
-        se dohledá spojením s CSV přes `Kod`.
+        `code` a `change_type`/`snapshot_date`, pokud existují) – zbytek atributů
+        se dohledá spojením s CSV přes `code`.
     """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     if keep_cols is None:
-        keep_cols = [c for c in ("Kod", "typ_zmeny", "snapshot_datum") if c in gdf.columns]
+        keep_cols = [c for c in ("code", "change_type", "snapshot_date") if c in gdf.columns]
 
     slim = gdf[[*keep_cols, "geometry"]].copy()
     slim = flatten_for_output(slim)
@@ -68,7 +68,7 @@ def write_csv_and_geojson(
     name: str,
     keep_cols: list[str] | None = None,
 ) -> None:
-    """Pohodlná zkratka: uloží `<name>.csv` (atributy) a `<name>.geojson` (geometrie)."""
+    """Uloží `<name>.csv` (atributy) a `<name>.geojson` (geometrie)."""
     out_dir = Path(out_dir)
     write_csv(gdf, out_dir / f"{name}.csv")
     write_geojson(gdf, out_dir / f"{name}.geojson", keep_cols=keep_cols)
