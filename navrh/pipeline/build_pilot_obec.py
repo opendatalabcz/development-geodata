@@ -36,9 +36,13 @@ def main() -> None:
     state = HistoryState.load(STATE_PATH)
     already_done = set(state.processed_months)
     todo = [m for m in months if m not in already_done]
+    # měsíce, u kterých minule zdrojový soubor na serveru nebyl, v
+    # `processed_months` nejsou -> jsou součástí `todo` a zkusí se znovu
+    retry = [m for m in todo if m in set(state.missing_months)]
 
     print(f"Obec {KOD_OBEC}: {len(months)} měsíců celkem, "
-          f"{len(already_done)} už zpracováno, {len(todo)} zbývá.")
+          f"{len(already_done)} už zpracováno, {len(todo)} zbývá "
+          f"(z toho {len(retry)} opakovaný pokus o dřív chybějící soubor).")
 
     ok_count, missing_count, error_count = 0, 0, 0
     for i, yyyymm in enumerate(todo, 1):
@@ -47,7 +51,9 @@ def main() -> None:
             state.ingest(result.gdf, yyyymm)
             ok_count += 1
         elif result.error == "soubor pro tento měsíc neexistuje":
-            state.processed_months.append(yyyymm)
+            # neoznačujeme jako zpracované -> zkusí se znovu (soubor pro
+            # poslední měsíce ČÚZK teprve zveřejní), viz mark_missing()
+            state.mark_missing(yyyymm)
             missing_count += 1
         else:
             print(f"  [{yyyymm}] CHYBA: {result.error}", file=sys.stderr)
@@ -70,8 +76,7 @@ def main() -> None:
     print(f"\nHotovo. Historie: {len(hist)} řádků, {hist['code'].nunique()} unikátních objektů.")
     print(hist["end_reason"].value_counts(dropna=False))
 
-    write_geopackage(OUT_DIR / f"{KOD_OBEC}_history.gpkg",
-                      hist, hist[hist["end_reason"].notna()])
+    write_geopackage(OUT_DIR / f"{KOD_OBEC}_history.gpkg", hist)
     write_csv_and_geojson(hist, OUT_DIR, f"{KOD_OBEC}_history",
                            keep_cols=["code", "valid_from", "valid_to", "end_reason"])
 

@@ -1,2 +1,10 @@
 __pycache__/
 *.pyc
+
+
+# pipeline outputs (regenerable)
+navrh/output/
+navrh/vystup/
+
+# downloaded history cache
+navrh/data/history/

@@ -21,12 +21,13 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 ANALYZA_DIR = REPO_ROOT / "analyza"
+CISELNIKY_DIR = ANALYZA_DIR / "ciselniky"
 OUTPUT_DIR = REPO_ROOT / "navrh" / "output"
 DEMO_OUT_DIR = OUTPUT_DIR / "demo"
 
 LOOKUP_SOURCES = {
-    "building_type_code": ANALYZA_DIR / "CS_TYP_STAVEBNIHO_OBJEKTU.csv",
-    "usage_type_code": ANALYZA_DIR / "CE_ZPUSOB_VYUZITI_OBJEKTU.csv",
+    "building_type_code": CISELNIKY_DIR / "CS_TYP_STAVEBNIHO_OBJEKTU.csv",
+    "usage_type_code": CISELNIKY_DIR / "CE_ZPUSOB_VYUZITI_OBJEKTU.csv",
 }
 
 

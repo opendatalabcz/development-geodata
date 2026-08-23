@@ -12,6 +12,7 @@ from __future__ import annotations
 import gzip
 import io
 import re
+import threading
 import time
 import zipfile
 from dataclasses import dataclass
@@ -52,13 +53,47 @@ def list_month_files(yyyymm: str, session: requests.Session | None = None) -> li
     return _FILE_ROW_RE.findall(resp.text)
 
 
-def find_obec_filename(yyyymm: str, kod_obec: str, session: requests.Session | None = None) -> str | None:
-    """Najde přesný název OB_<kod_obec>_UKSH souboru v daném měsíci (nebo None)."""
+def _match_obec_filename(kod_obec: str, filenames: list[str]) -> str | None:
+    """Vybere z výpisu adresáře (viz `list_month_files`) přesný název
+    OB_<kod_obec>_UKSH souboru (nebo None) – čistá funkce, žádné I/O."""
     pattern = re.compile(rf"^\d{{8}}_OB_{re.escape(kod_obec)}_UKSH\.xml\.(zip|gz)$")
-    for name in list_month_files(yyyymm, session=session):
+    for name in filenames:
         if pattern.match(name):
             return name
     return None
+
+
+def find_obec_filename(yyyymm: str, kod_obec: str, session: requests.Session | None = None) -> str | None:
+    """Najde přesný název OB_<kod_obec>_UKSH souboru v daném měsíci (nebo None)."""
+    return _match_obec_filename(kod_obec, list_month_files(yyyymm, session=session))
+
+
+class MonthListingCache:
+    """Sdílená mezipaměť výpisů adresářů /vfr/{yyyymm}/ napříč obcemi.
+
+    Výpis adresáře daného měsíce je pro všechny obce stejný, takže při
+    zpracování víc obcí najednou (viz `build_region.py`) ho stačí stáhnout
+    jednou a dál jen znovupoužívat – místo aby si ho každá obec tahala
+    zvlášť. Thread-safe (víc vláken se může ptát na stejný/různý měsíc
+    zároveň), viz `ThreadPoolExecutor` v `build_region.py`.
+    """
+
+    def __init__(self) -> None:
+        self._data: dict[str, list[str]] = {}
+        self._lock = threading.Lock()
+
+    def get(self, yyyymm: str, session: requests.Session | None = None) -> list[str]:
+        with self._lock:
+            cached = self._data.get(yyyymm)
+        if cached is not None:
+            return cached
+        # síťové volání záměrně mimo zámek, ať se navzájem neblokují vlákna
+        # čekající na jiné měsíce (příp. duplicitní stažení téhož měsíce
+        # dvěma vlákny najednou vadit nebude, jen se zahodí jeden výsledek)
+        files = list_month_files(yyyymm, session=session)
+        with self._lock:
+            self._data.setdefault(yyyymm, files)
+            return self._data[yyyymm]
 
 
 def _extract_xml_bytes(raw: bytes, filename: str) -> bytes:
@@ -75,13 +110,21 @@ def fetch_obec_snapshot(
     yyyymm: str,
     kod_obec: str,
     session: requests.Session | None = None,
+    listing_cache: MonthListingCache | None = None,
 ) -> ObecSnapshotResult:
     """Stáhne a naparsuje jeden měsíční snapshot obce – vše v paměti,
-    na disk se nic neukládá."""
+    na disk se nic neukládá.
+
+    `listing_cache`: pokud je dodaná, použije se pro zjištění výpisu
+    adresáře daného měsíce místo vlastního dotazu (viz `MonthListingCache`)
+    – vyplatí se při zpracování víc obcí najednou."""
     session = session or requests
     try:
         try:
-            filename = find_obec_filename(yyyymm, kod_obec, session=session)
+            if listing_cache is not None:
+                filename = _match_obec_filename(kod_obec, listing_cache.get(yyyymm, session=session))
+            else:
+                filename = find_obec_filename(yyyymm, kod_obec, session=session)
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 404:
                 # adresář měsíce ještě neexistuje (budoucí/nezveřejněný měsíc)
@@ -126,6 +169,7 @@ def fetch_obec_history_stream(
     months: list[str] | None = None,
     delay_s: float = 1.0,
     session: requests.Session | None = None,
+    listing_cache: MonthListingCache | None = None,
 ):
     """Generátor: postupně stahuje a parsuje snapshoty jedné obce měsíc po
     měsíci (slušné tempo dotazů – `delay_s` mezi requesty), a jeden po druhém
@@ -135,7 +179,7 @@ def fetch_obec_history_stream(
     session = session or requests.Session()
 
     for i, yyyymm in enumerate(months):
-        result = fetch_obec_snapshot(yyyymm, kod_obec, session=session)
+        result = fetch_obec_snapshot(yyyymm, kod_obec, session=session, listing_cache=listing_cache)
         yield result
         if i < len(months) - 1:
             time.sleep(delay_s)
