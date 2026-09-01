@@ -1,13 +1,14 @@
-"""JEN PRO DEMO (viz navrh/pipeline/demo) – není součástí hlavní pipeline.
+"""DEMO ONLY (see navrh/pipeline/demo) - not part of the main pipeline.
 
-Připraví odlehčený JSON podklad pro interaktivní demo mapu (Artifact) –
-aktuálně platné stavební objekty obarvené podle roku dokončení, s popisy
-kódů z číselníků ČÚZK.
+Prepares a lightweight JSON base for the interactive demo map (Artifact) -
+currently valid building objects coloured by their completion year, with labels
+for the codes taken from the ČÚZK code lists.
 
-Čte aktuální výstup hlavní pipeline (navrh/output/539309_history.gpkg),
-výsledek ukládá zvlášť do navrh/output/demo/.
+Reads the current output of the main pipeline
+(navrh/output/539309_history.gpkg), the result is stored separately in
+navrh/output/demo/.
 
-Použití (z kořene repozitáře):
+Usage (from the repository root):
     python -m navrh.pipeline.demo.export_demo_map
 """
 
@@ -20,14 +21,14 @@ import geopandas as gpd
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-ANALYZA_DIR = REPO_ROOT / "analyza"
-CISELNIKY_DIR = ANALYZA_DIR / "ciselniky"
+ANALYSIS_DIR = REPO_ROOT / "analyza"
+CODELISTS_DIR = ANALYSIS_DIR / "ciselniky"
 OUTPUT_DIR = REPO_ROOT / "navrh" / "output"
 DEMO_OUT_DIR = OUTPUT_DIR / "demo"
 
 LOOKUP_SOURCES = {
-    "building_type_code": CISELNIKY_DIR / "CS_TYP_STAVEBNIHO_OBJEKTU.csv",
-    "usage_type_code": CISELNIKY_DIR / "CE_ZPUSOB_VYUZITI_OBJEKTU.csv",
+    "building_type_code": CODELISTS_DIR / "CS_TYP_STAVEBNIHO_OBJEKTU.csv",
+    "usage_type_code": CODELISTS_DIR / "CE_ZPUSOB_VYUZITI_OBJEKTU.csv",
 }
 
 
@@ -40,15 +41,15 @@ def _repair_cp1250(value):
         return value
 
 
-def _load_lookup(path: Path, kod_col: str = "KOD", nazev_col: str = "NAZEV") -> dict:
+def _load_lookup(path: Path, code_col: str = "KOD", name_col: str = "NAZEV") -> dict:
     try:
         df = pd.read_csv(path, sep=";", encoding="utf-8-sig")
     except UnicodeDecodeError:
         df = pd.read_csv(path, sep=";", encoding="latin1")
-    df[kod_col] = df[kod_col].astype(str).str.strip()
-    df[nazev_col] = df[nazev_col].astype(str).str.strip().apply(_repair_cp1250)
-    df = df.drop_duplicates(subset=[kod_col], keep="first")
-    return dict(zip(df[kod_col], df[nazev_col]))
+    df[code_col] = df[code_col].astype(str).str.strip()
+    df[name_col] = df[name_col].astype(str).str.strip().apply(_repair_cp1250)
+    df = df.drop_duplicates(subset=[code_col], keep="first")
+    return dict(zip(df[code_col], df[name_col]))
 
 
 def _geom_to_coords(geom, precision: int = 1):
@@ -115,7 +116,7 @@ def build_demo_map_json(history_gpkg: Path, out_json: Path) -> None:
     out_json.parent.mkdir(parents=True, exist_ok=True)
     with open(out_json, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
-    print(f"Uloženo: {out_json}  ({len(features)} objektů)")
+    print(f"Saved: {out_json}  ({len(features)} objects)")
 
 
 if __name__ == "__main__":

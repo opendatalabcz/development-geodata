@@ -1,13 +1,14 @@
-"""Export do „ploché" podoby pro rychlý přehled nad daty:
+"""Export into a "flat" form for a quick overview of the data:
 
-- CSV  – čistě atributy (bez geometrie), pro pohled v Excelu/pandas
-         (`df.describe()`, filtrování, pivotky…)
-- GeoJSON – čistě geometrie + klíč `code` (a pár identifikačních atributů),
-         v EPSG:4326 (WGS84), aby šlo otevřít v QGIS/geojson.io/Leafletu
+- CSV     - attributes only (no geometry), for a look in Excel/pandas
+            (`df.describe()`, filtering, pivot tables...)
+- GeoJSON - geometry only + the `code` key (and a few identifying attributes),
+            in EPSG:4326 (WGS84), so it can be opened in
+            QGIS/geojson.io/Leaflet
 
-Obě sady jde propojit přes sloupec `code` (u vrstvy `building_objects` navíc
-přes `snapshot_date`, protože jeden `code` se v ní objevuje 2× – jednou pro
-každý zpracovaný snapshot).
+The two sets can be joined through the `code` column (for the
+`building_objects` layer additionally through `snapshot_date`, because one
+`code` appears in it twice - once for every processed snapshot).
 """
 
 from __future__ import annotations
@@ -22,14 +23,15 @@ GEOJSON_CRS = "EPSG:4326"
 
 
 def write_csv(gdf: gpd.GeoDataFrame, out_path: str | Path) -> None:
-    """Uloží atributovou tabulku (bez geometrie) do CSV (utf-8-sig kvůli Excelu)."""
+    """Save the attribute table (without geometry) into a CSV (utf-8-sig for
+    Excel's sake)."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     df = flatten_for_output(gdf)
     df = df.drop(columns=["geometry"], errors="ignore")
     df.to_csv(out_path, index=False, encoding="utf-8-sig")
-    print(f"Uloženo: {out_path}  ({len(df)} řádků, {len(df.columns)} sloupců)")
+    print(f"Saved: {out_path}  ({len(df)} rows, {len(df.columns)} columns)")
 
 
 def write_geojson(
@@ -37,14 +39,14 @@ def write_geojson(
     out_path: str | Path,
     keep_cols: list[str] | None = None,
 ) -> None:
-    """Uloží jen geometrii (+ identifikační sloupce) do GeoJSON v EPSG:4326.
+    """Save only the geometry (+ identifying columns) into a GeoJSON in EPSG:4326.
 
     Parameters
     ----------
     keep_cols:
-        které atributové sloupce si GeoJSON ponechá vedle geometrie (výchozí:
-        `code` a `change_type`/`snapshot_date`, pokud existují) – zbytek atributů
-        se dohledá spojením s CSV přes `code`.
+        which attribute columns the GeoJSON keeps alongside the geometry
+        (default: `code` and `change_type`/`snapshot_date`, if present) - the
+        remaining attributes are looked up by joining with the CSV on `code`.
     """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -59,7 +61,7 @@ def write_geojson(
     if out_path.exists():
         out_path.unlink()
     slim.to_file(out_path, driver="GeoJSON")
-    print(f"Uloženo: {out_path}  ({len(slim)} objektů, CRS {GEOJSON_CRS})")
+    print(f"Saved: {out_path}  ({len(slim)} objects, CRS {GEOJSON_CRS})")
 
 
 def write_csv_and_geojson(
@@ -68,7 +70,7 @@ def write_csv_and_geojson(
     name: str,
     keep_cols: list[str] | None = None,
 ) -> None:
-    """Uloží `<name>.csv` (atributy) a `<name>.geojson` (geometrie)."""
+    """Save `<name>.csv` (attributes) and `<name>.geojson` (geometry)."""
     out_dir = Path(out_dir)
     write_csv(gdf, out_dir / f"{name}.csv")
     write_geojson(gdf, out_dir / f"{name}.geojson", keep_cols=keep_cols)

@@ -1,12 +1,12 @@
-"""Parsování RÚIAN VFR XML souborů typu OB_UKSH (stavební objekty, úplná
-kompletní datová sada) do geopandas.GeoDataFrame se skutečnou geometrií.
+"""Parsing of RÚIAN VFR XML files of type OB_UKSH (building objects, full
+complete dataset) into a geopandas.GeoDataFrame with real geometry.
 
-Na rozdíl od dřívějšího prototypu v analyza/*.ipynb (funkce flatten_element),
-tady se GML geometrie (gml:MultiSurface / gml:Polygon / exterior / interior)
-skládá do opravdových shapely objektů – nezplošťuje se do prostého seznamu
-souřadnic, takže se zachovávají díry v polygonu i skutečné multipolygony.
+Unlike the earlier prototype in analyza/*.ipynb (function flatten_element),
+here the GML geometry (gml:MultiSurface / gml:Polygon / exterior / interior)
+is assembled into actual shapely objects - it is not flattened into a plain
+list of coordinates, so polygon holes and true multipolygons are preserved.
 
-Souřadnicový systém dat je EPSG:5514 (S-JTSK / Krovak East North).
+The coordinate system of the data is EPSG:5514 (S-JTSK / Krovak East North).
 """
 
 from __future__ import annotations
@@ -22,9 +22,9 @@ from shapely.geometry import MultiPolygon, Point, Polygon
 GML_NS = "{http://www.opengis.net/gml/3.2}"
 CRS_VFR = "EPSG:5514"
 
-# Atributy StavebniObjekt, které bereme jako skalární sloupce (mimo geometrii).
-# Klíč = výsledný název sloupce (anglicky, snake_case), hodnota = lokální
-# jméno XML elementu dle schématu VFR (to zůstává beze změny).
+# StavebniObjekt attributes taken as scalar columns (geometry aside).
+# Key = resulting column name (English, snake_case), value = local name of the
+# XML element per the VFR schema (that one stays unchanged).
 SCALAR_FIELDS = {
     "code": "Kod",
     "building_type_code": "TypStavebnihoObjektuKod",
@@ -48,8 +48,9 @@ SCALAR_FIELDS = {
 NUMERIC_FIELDS = ("unit_count", "floor_count", "built_up_area")
 DATE_FIELDS = ("record_valid_from", "completion_date")
 
-# Atributy, které se u "stejného" objektu běžně mění bez skutečné věcné změny
-# (transakční metadata) – při diffování je ignorujeme, viz changefile.py.
+# Attributes that routinely change on "the same" object without any real
+# substantive change (transaction metadata) - ignored when diffing, see
+# changefile.py.
 VOLATILE_FIELDS = ("record_valid_from", "change_proposal_global_id", "transaction_id")
 
 
@@ -86,13 +87,13 @@ def _parse_polygon_el(polygon_el) -> Polygon | None:
         return None
 
 
-def parse_original_hranice(hranice_el) -> Polygon | MultiPolygon | None:
-    """Převede soi:OriginalniHranice na shapely Polygon/MultiPolygon."""
-    if hranice_el is None:
+def parse_boundary(boundary_el) -> Polygon | MultiPolygon | None:
+    """Convert soi:OriginalniHranice into a shapely Polygon/MultiPolygon."""
+    if boundary_el is None:
         return None
 
     polygons = [
-        p for p in (_parse_polygon_el(pe) for pe in hranice_el.iter(f"{GML_NS}Polygon"))
+        p for p in (_parse_polygon_el(pe) for pe in boundary_el.iter(f"{GML_NS}Polygon"))
         if p is not None and p.is_valid and not p.is_empty
     ]
     if not polygons:
@@ -102,11 +103,11 @@ def parse_original_hranice(hranice_el) -> Polygon | MultiPolygon | None:
     return MultiPolygon(polygons)
 
 
-def parse_definicni_bod(bod_el) -> Point | None:
-    """Převede soi:DefinicniBod (gml:Point/gml:pos) na shapely Point."""
-    if bod_el is None:
+def parse_reference_point(point_el) -> Point | None:
+    """Convert soi:DefinicniBod (gml:Point/gml:pos) into a shapely Point."""
+    if point_el is None:
         return None
-    pos = bod_el.find(f".//{GML_NS}pos")
+    pos = point_el.find(f".//{GML_NS}pos")
     if pos is None or not pos.text:
         return None
     parts = pos.text.split()
@@ -118,17 +119,17 @@ def parse_definicni_bod(bod_el) -> Point | None:
         return None
 
 
-def _cisla_domovni(el) -> str | None:
-    hodnoty = [
+def _house_numbers(el) -> str | None:
+    values = [
         _text(c.find("*"))
         for c in el.findall("*")
         if _local(c.tag) == "CislaDomovni"
     ]
-    hodnoty = [h for h in hodnoty if h]
-    return "; ".join(hodnoty) if hodnoty else None
+    values = [v for v in values if v]
+    return "; ".join(values) if values else None
 
 
-def _identifikacni_parcely(el) -> str | None:
+def _parcel_ids(el) -> str | None:
     ids = []
     for c in el:
         if _local(c.tag) != "IdentifikacniParcela":
@@ -140,7 +141,7 @@ def _identifikacni_parcely(el) -> str | None:
     return "; ".join(ids) if ids else None
 
 
-def _cast_obce_kod(el) -> str | None:
+def _district_code(el) -> str | None:
     for c in el:
         if _local(c.tag) == "CastObce":
             for sub in c:
@@ -149,7 +150,7 @@ def _cast_obce_kod(el) -> str | None:
     return None
 
 
-def _stavebni_objekt_to_row(el) -> dict:
+def _building_object_to_row(el) -> dict:
     row: dict = {"gml_id": el.get(f"{GML_NS}id")}
 
     by_local = {}
@@ -160,24 +161,24 @@ def _stavebni_objekt_to_row(el) -> dict:
         els = by_local.get(local_name)
         row[col_name] = _text(els[0]) if els else None
 
-    row["house_numbers"] = _cisla_domovni(el)
-    row["parcel_ids"] = _identifikacni_parcely(el)
-    row["district_code"] = _cast_obce_kod(el)
+    row["house_numbers"] = _house_numbers(el)
+    row["parcel_ids"] = _parcel_ids(el)
+    row["district_code"] = _district_code(el)
 
-    geometrie_els = by_local.get("Geometrie")
-    bod = hranice = None
-    if geometrie_els:
-        geom_el = geometrie_els[0]
+    geometry_els = by_local.get("Geometrie")
+    point = boundary = None
+    if geometry_els:
+        geom_el = geometry_els[0]
         for c in geom_el:
             local_name = _local(c.tag)
             if local_name == "DefinicniBod":
-                bod = parse_definicni_bod(c)
+                point = parse_reference_point(c)
             elif local_name == "OriginalniHranice":
-                hranice = parse_original_hranice(c)
+                boundary = parse_boundary(c)
 
-    row["reference_point"] = bod
-    row["geometry"] = hranice if hranice is not None else bod
-    row["has_polygon"] = hranice is not None
+    row["reference_point"] = point
+    row["geometry"] = boundary if boundary is not None else point
+    row["has_polygon"] = boundary is not None
     return row
 
 
@@ -193,44 +194,45 @@ def _coerce_types(df: pd.DataFrame) -> pd.DataFrame:
 
 
 @dataclass
-class VfrHlavicka:
-    verze_vfr: str | None
-    typ_davky: str | None
-    typ_souboru: str | None
-    datum: pd.Timestamp | None
+class VfrHeader:
+    vfr_version: str | None
+    batch_type: str | None
+    file_type: str | None
+    date: pd.Timestamp | None
 
 
-def _hlavicka_from_root(root) -> VfrHlavicka:
+def _header_from_root(root) -> VfrHeader:
     ns = root.nsmap.copy()
-    hlavicka = root.find("vf:Hlavicka", ns)
-    info = {_local(c.tag): _text(c) for c in hlavicka if isinstance(c.tag, str)}
-    return VfrHlavicka(
-        verze_vfr=info.get("VerzeVFR"),
-        typ_davky=info.get("TypDavky"),
-        typ_souboru=info.get("TypSouboru"),
-        datum=pd.to_datetime(info.get("Datum"), errors="coerce"),
+    header_el = root.find("vf:Hlavicka", ns)
+    info = {_local(c.tag): _text(c) for c in header_el if isinstance(c.tag, str)}
+    return VfrHeader(
+        vfr_version=info.get("VerzeVFR"),
+        batch_type=info.get("TypDavky"),
+        file_type=info.get("TypSouboru"),
+        date=pd.to_datetime(info.get("Datum"), errors="coerce"),
     )
 
 
-def parse_hlavicka(xml_path: str | Path) -> VfrHlavicka:
+def parse_header(xml_path: str | Path) -> VfrHeader:
     tree = etree.parse(str(xml_path))
-    return _hlavicka_from_root(tree.getroot())
+    return _header_from_root(tree.getroot())
 
 
-def parse_stavebni_objekty(xml_source, snapshot_datum=None, source_name: str | None = None) -> gpd.GeoDataFrame:
-    """Naparsuje StavebniObjekty z VFR XML (OB_UKSH) do GeoDataFrame.
+def parse_building_objects(xml_source, snapshot_date=None, source_name: str | None = None) -> gpd.GeoDataFrame:
+    """Parse StavebniObjekty from a VFR XML (OB_UKSH) into a GeoDataFrame.
 
     Parameters
     ----------
     xml_source:
-        cesta k VFR XML souboru (str/Path), NEBO file-like objekt s bajty
-        (např. `io.BytesIO` staženého a rozbaleného souboru – nic se
-        nemusí ukládat na disk)
-    snapshot_datum:
-        datum snapshotu; pokud None, vezme se z hlavičky souboru (vf:Hlavicka/Datum)
+        path to the VFR XML file (str/Path), OR a file-like object of bytes
+        (e.g. `io.BytesIO` of a downloaded and decompressed file - nothing has
+        to be written to disk)
+    snapshot_date:
+        date of the snapshot; if None, taken from the file header
+        (vf:Hlavicka/Datum)
     source_name:
-        jméno zdrojového souboru pro sloupec `source_file`; u cesty se
-        odvodí automaticky, u file-like objektu je potřeba dodat
+        name of the source file for the `source_file` column; derived
+        automatically from a path, has to be supplied for a file-like object
     """
     if isinstance(xml_source, (str, Path)):
         xml_path = Path(xml_source)
@@ -243,13 +245,13 @@ def parse_stavebni_objekty(xml_source, snapshot_datum=None, source_name: str | N
     root = tree.getroot()
     ns = root.nsmap.copy()
 
-    if snapshot_datum is None:
-        snapshot_datum = _hlavicka_from_root(root).datum
+    if snapshot_date is None:
+        snapshot_date = _header_from_root(root).date
 
     data_el = root.find("vf:Data", ns)
-    stavebni_objekty = data_el.findall("vf:StavebniObjekty/vf:StavebniObjekt", ns)
+    building_object_els = data_el.findall("vf:StavebniObjekty/vf:StavebniObjekt", ns)
 
-    rows = [_stavebni_objekt_to_row(el) for el in stavebni_objekty]
+    rows = [_building_object_to_row(el) for el in building_object_els]
     if not rows:
         cols = ["gml_id", *SCALAR_FIELDS, "house_numbers", "parcel_ids",
                 "district_code", "reference_point", "geometry", "has_polygon"]
@@ -257,7 +259,7 @@ def parse_stavebni_objekty(xml_source, snapshot_datum=None, source_name: str | N
     else:
         df = pd.DataFrame(rows)
     df = _coerce_types(df)
-    df["snapshot_date"] = snapshot_datum
+    df["snapshot_date"] = snapshot_date
     df["source_file"] = source_name
 
     gdf = gpd.GeoDataFrame(df, geometry="geometry", crs=CRS_VFR)

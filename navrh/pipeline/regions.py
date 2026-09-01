@@ -1,26 +1,30 @@
-"""Pojmenované regiony (seznamy kódů obcí) pro dávkové běhy pipeliny na víc
-obcí najednou – viz `build_region.py`.
+"""Named regions (lists of municipality codes) for batch runs of the pipeline
+over several municipalities at once - see `build_region.py`.
 
-Kódy obcí jsou skutečné RÚIAN kódy, zjištěné z veřejného ArcGIS REST API
-ČÚZK (https://ags.cuzk.cz/arcgis/rest/services/RUIAN/MapServer/12, vrstva
-„Obec“), ne odhadnuté podle jména. `BRNO_OKOLI` vznikl takto (2026-08):
+The municipality codes are real RÚIAN codes, looked up in the public ArcGIS
+REST API of ČÚZK (https://ags.cuzk.cz/arcgis/rest/services/RUIAN/MapServer/12,
+layer "Obec"), not guessed from the name. `BRNO_AREA` was built like this
+(2026-08):
 
-    1. dotaz na vrstvu 15 (Okres) -> kódy okresů Brno-město (3702) a
-       Brno-venkov (3703)
-    2. dotaz na vrstvu 12 (Obec) WHERE okres IN (3702, 3703) -> 188 obcí
-       s reálnou geometrií (zjednodušenou přes `maxAllowableOffset`)
-    3. těžiště polygonu každé obce, vzdálenost od těžiště Brna (kód 582786)
-    4. 30 geograficky nejbližších obcí (Brno + 29 sousedů), seřazeno podle
-       vzdálenosti
+    1. query layer 15 (Okres/district) -> codes of the districts Brno-město
+       (3702) and Brno-venkov (3703)
+    2. query layer 12 (Obec/municipality) WHERE okres IN (3702, 3703) -> 188
+       municipalities with real geometry (simplified via `maxAllowableOffset`)
+    3. centroid of each municipality polygon, distance from the centroid of
+       Brno (code 582786)
+    4. the 30 geographically closest municipalities (Brno + 29 neighbours),
+       sorted by distance
 
-Přehled: 4 km – Brno samotné, dál Ostopovice, Modřice, Kuřim, Šlapanice atd.
-(typické blízké příměstské obce), nejvzdálenější z třicítky ~12 km od centra.
+Overview: 4 km - Brno itself, further out Ostopovice, Modřice, Kuřim,
+Šlapanice etc. (typical nearby suburban municipalities), the most distant of
+the thirty is ~12 km from the centre.
 """
 
 from __future__ import annotations
 
-# (kod_obce, nazev, vzdalenost_od_brna_km) – seřazeno od nejbližší (Brno = 0)
-BRNO_OKOLI: list[tuple[str, str, float]] = [
+# (municipality_code, name, distance_from_brno_km) - sorted from the closest
+# (Brno = 0)
+BRNO_AREA: list[tuple[str, str, float]] = [
     ("582786", "Brno", 0.0),
     ("583596", "Ostopovice", 6.4),
     ("583413", "Moravany", 7.0),
@@ -54,5 +58,5 @@ BRNO_OKOLI: list[tuple[str, str, float]] = [
 ]
 
 REGIONS: dict[str, list[tuple[str, str, float]]] = {
-    "brno_okoli": BRNO_OKOLI,
+    "brno_area": BRNO_AREA,
 }

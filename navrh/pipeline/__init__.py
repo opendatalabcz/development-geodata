@@ -1,21 +1,25 @@
-"""Pipeline pro zpracování RÚIAN VFR souborů (stavební objekty).
+"""Pipeline for processing RÚIAN VFR files (building objects).
 
-Aktuální moduly:
-    vfr_parser     – parsování VFR XML (OB_UKSH) do GeoDataFrame se skutečnou
-                     geometrií (Point / Polygon / MultiPolygon)
-    download       – stahování měsíčních OB_UKSH souborů ze
-                     services.cuzk.gov.cz/vfr po jedné obci, v paměti
-    history        – HistoryState: verzovaná historie (SCD2) sestavená
-                     průběžně z posloupnosti měsíčních snapshotů
-    build_pilot_obec – hlavní orchestrace: stažení + zpracování celé
-                     dostupné historie jedné obce
-    export_gpkg    – uložení do GeoPackage
-    export_tabular – export do CSV (atributy) + GeoJSON (geometrie),
-                     propojitelné přes sloupec `code`
-    _util          – sdílené pomocné funkce pro export
+Current modules:
+    vfr_parser     - parsing of VFR XML (OB_UKSH) into a GeoDataFrame with real
+                     geometry (Point / Polygon / MultiPolygon)
+    download       - downloading of the monthly OB_UKSH files from
+                     services.cuzk.gov.cz/vfr, one municipality at a time, in
+                     memory
+    history        - HistoryState: versioned history (SCD2) built incrementally
+                     from a sequence of monthly snapshots
+    build_region   - the main orchestration (the single entry point):
+                     downloading + processing of the chosen month range for one
+                     municipality, a list of municipalities or a whole named
+                     region
+    regions        - named lists of municipalities for batch runs
+    export_gpkg    - saving into GeoPackage
+    export_tabular - export into CSV (attributes) + GeoJSON (geometry),
+                     joinable through the `code` column
+    _util          - shared helpers for the export
 
-Podsložky:
-    demo – skripty jen pro přípravu demo/prezentačních výstupů
-           (nejsou součástí hlavní pipeline)
-    old  – předchozí iterace, ponecháno pro referenci (nahrazeno výše)
+Subfolders:
+    demo - scripts used only to prepare demo/presentation outputs
+           (not part of the main pipeline)
+    old  - previous iterations, kept for reference (superseded by the above)
 """

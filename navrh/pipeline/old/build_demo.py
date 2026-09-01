@@ -19,7 +19,7 @@ import pandas as pd
 from .changefile import build_changefile, changefile_summary
 from ..export_gpkg import write_geopackage
 from ..export_tabular import write_csv_and_geojson
-from ..vfr_parser import parse_stavebni_objekty
+from ..vfr_parser import parse_building_objects
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 ANALYZA_DIR = REPO_ROOT / "analyza"
@@ -27,8 +27,8 @@ OUT_DIR = REPO_ROOT / "navrh" / "vystup" / "old"
 
 
 def main() -> None:
-    gdf_2016 = parse_stavebni_objekty(ANALYZA_DIR / "Chyne_UKSH_2016.xml")
-    gdf_2026 = parse_stavebni_objekty(ANALYZA_DIR / "Chyne_UKSH_2026.xml")
+    gdf_2016 = parse_building_objects(ANALYZA_DIR / "Chyne_UKSH_2016.xml")
+    gdf_2026 = parse_building_objects(ANALYZA_DIR / "Chyne_UKSH_2026.xml")
 
     print(f"2016: {len(gdf_2016)} objektů, s polygonem: {gdf_2016['ma_polygon'].sum()}")
     print(f"2026: {len(gdf_2026)} objektů, s polygonem: {gdf_2026['ma_polygon'].sum()}")

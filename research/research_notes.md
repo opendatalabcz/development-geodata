@@ -84,3 +84,7 @@ další dostupná geodata:
 https://geoportal.gov.cz/web/guest/map
 
 https://apl.czso.cz/
+
+https://katastrbudov.cz/
+
+https://isui.cuzk.gov.cz/help/index.htm?context=1510

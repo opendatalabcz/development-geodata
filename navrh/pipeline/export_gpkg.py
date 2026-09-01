@@ -1,4 +1,4 @@
-"""Export snapshotů do GeoPackage."""
+"""Export of snapshots into GeoPackage."""
 
 from __future__ import annotations
 
@@ -11,22 +11,22 @@ from ._util import flatten_for_output as _gpkg_safe
 
 def write_geopackage(
     out_path: str | Path,
-    stavebni_objekty: gpd.GeoDataFrame,
+    building_objects: gpd.GeoDataFrame,
 ) -> None:
-    """Uloží kompletní (verzovanou) historii do .gpkg (vrstva
-    'building_objects'). Řádky se zavřenou verzí (`end_reason` vyplněný,
-    tj. `valid_to IS NOT NULL`) jsou jen podmnožina téhle vrstvy – kdo je
-    potřebuje zvlášť, vyfiltruje si je na místě, není důvod je duplikovat
-    do vlastní vrstvy/souboru."""
+    """Save the complete (versioned) history into a .gpkg (layer
+    'building_objects'). Rows with a closed version (`end_reason` filled in,
+    i.e. `valid_to IS NOT NULL`) are just a subset of this layer - whoever needs
+    them separately filters them out on the spot, there is no reason to
+    duplicate them into a layer/file of their own."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    so = _gpkg_safe(stavebni_objekty)
+    gdf = _gpkg_safe(building_objects)
 
     if out_path.exists():
         out_path.unlink()
 
-    so.to_file(out_path, layer="building_objects", driver="GPKG")
+    gdf.to_file(out_path, layer="building_objects", driver="GPKG")
 
-    print(f"Uloženo: {out_path}")
-    print(f"  vrstva 'building_objects': {len(so)} záznamů")
+    print(f"Saved: {out_path}")
+    print(f"  layer 'building_objects': {len(gdf)} records")
