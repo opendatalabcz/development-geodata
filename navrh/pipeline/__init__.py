@@ -1,25 +1,16 @@
 """Pipeline for processing RÚIAN VFR files (building objects).
 
-Current modules:
-    vfr_parser     - parsing of VFR XML (OB_UKSH) into a GeoDataFrame with real
-                     geometry (Point / Polygon / MultiPolygon)
-    download       - downloading of the monthly OB_UKSH files from
-                     services.cuzk.gov.cz/vfr, one municipality at a time, in
-                     memory
-    history        - HistoryState: versioned history (SCD2) built incrementally
-                     from a sequence of monthly snapshots
-    build_region   - the main orchestration (the single entry point):
-                     downloading + processing of the chosen month range for one
-                     municipality, a list of municipalities or a whole named
-                     region
+Modules:
+    vfr_parser     - VFR XML (OB_UKSH) -> GeoDataFrame with real geometry
+    download       - monthly OB_UKSH files from services.cuzk.gov.cz/vfr
+    history        - HistoryState: versioned history (SCD2) from the snapshots
+    build_region   - the entry point: downloads and processes a month range
     regions        - named lists of municipalities for batch runs
     export_gpkg    - saving into GeoPackage
-    export_tabular - export into CSV (attributes) + GeoJSON (geometry),
-                     joinable through the `code` column
+    export_tabular - CSV (attributes) + GeoJSON (geometry), joined on `code`
     _util          - shared helpers for the export
 
 Subfolders:
-    demo - scripts used only to prepare demo/presentation outputs
-           (not part of the main pipeline)
-    old  - previous iterations, kept for reference (superseded by the above)
+    demo - scripts for demo/presentation outputs
+    old  - previous iterations, kept for reference
 """

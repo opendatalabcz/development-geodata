@@ -1,14 +1,7 @@
-"""Export into a "flat" form for a quick overview of the data:
-
-- CSV     - attributes only (no geometry), for a look in Excel/pandas
-            (`df.describe()`, filtering, pivot tables...)
-- GeoJSON - geometry only + the `code` key (and a few identifying attributes),
-            in EPSG:4326 (WGS84), so it can be opened in
-            QGIS/geojson.io/Leaflet
-
-The two sets can be joined through the `code` column (for the
-`building_objects` layer additionally through `snapshot_date`, because one
-`code` appears in it twice - once for every processed snapshot).
+"""Export into a "flat" form for a quick overview of the data: a CSV with the
+attributes only (for Excel/pandas) and a GeoJSON with the geometry only in
+EPSG:4326 (for QGIS/geojson.io/Leaflet). The two are joined on `code`, in the
+`building_objects` layer on `snapshot_date` as well.
 """
 
 from __future__ import annotations
@@ -39,15 +32,8 @@ def write_geojson(
     out_path: str | Path,
     keep_cols: list[str] | None = None,
 ) -> None:
-    """Save only the geometry (+ identifying columns) into a GeoJSON in EPSG:4326.
-
-    Parameters
-    ----------
-    keep_cols:
-        which attribute columns the GeoJSON keeps alongside the geometry
-        (default: `code` and `change_type`/`snapshot_date`, if present) - the
-        remaining attributes are looked up by joining with the CSV on `code`.
-    """
+    """Save only the geometry, plus the columns identifying each row, into a
+    GeoJSON in EPSG:4326."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 

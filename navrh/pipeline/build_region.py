@@ -1,53 +1,9 @@
 """Universal pipeline run: downloads and processes the chosen range of monthly
 RÚIAN snapshots (OB_UKSH) for one municipality, a list of municipalities or a
 whole named region, and builds the versioned history of building objects (SCD2)
-out of them.
-
-The month range is given via `--start` / `--end` (YYYYMM as well as YYYY-M) -
-from the whole available history (the default, i.e. 201508 up to the last
-published month) down to a single month (`--start 2026-7 --end 2026-7`) for
-regularly topping up newly published snapshots. The range is automatically
-trimmed at both ends to what ČÚZK actually publishes, see
-`download.month_range`.
-
-The format of the source files does not change across the whole archive (only
-the suffix .xml.gz -> .xml.zip, which `download.py` handles by reading the real
-directory listing), so the same code processes a snapshot from 2015 and from
-this year alike.
-
-Performance: compared to naively downloading municipality by municipality there
-are three extra things here:
-
-    1. a shared `requests.Session` across the whole run (keep-alive connections
-       instead of a new TCP/TLS handshake on every request)
-    2. a shared `MonthListingCache` (see download.py) - the listing of the
-       directory /vfr/{yyyymm}/ is the same for every municipality in that
-       month, so it is downloaded once and reused, instead of every
-       municipality fetching it separately (this used to be half of all
-       requests)
-    3. several municipalities processed concurrently (`ThreadPoolExecutor`) -
-       downloading is waiting on the network, not on the CPU, so parallelism
-       scales almost linearly
-
-Processing of a single municipality stays sequential month by month (the SCD2
-diffing in history.py depends on the order) - the parallelism is across
-municipalities, which are independent of each other. One shared `Session`
-between threads is safe, because it is only read from (no cookies/state are
-modified) and the connection pool underneath it (urllib3 `PoolManager`) is
-designed for multiple threads.
-
-It is precisely because of that order dependency that the range is checked
-before a run (see `HistoryState.out_of_order_months` / `gap_months`): a month
-older than the already projected state would have to be dropped by `ingest()`,
-so we rather stop with an error right away and offer `--rebuild` than silently
-produce an incomplete history.
-
-The state (`HistoryState`) is stored separately for each municipality in
-GeoParquet (`navrh/data/history/<code>.parquet`), so a run can be interrupted
-and started again at any time - what is done is not downloaded again, and a
-further run with a continuing range only extends the history. On top of that a
-single combined export (GPKG + CSV + GeoJSON) with the columns
-`municipality_code`/`municipality_name` is produced at the end.
+out of them. The month range is given via `--start` / `--end`, municipalities
+are processed concurrently, and a single combined export (GPKG + CSV + GeoJSON)
+is produced at the end.
 
 Usage (from the repository root):
     python -m navrh.pipeline.build_region --municipality 539309
@@ -94,7 +50,6 @@ _print_lock = threading.Lock()
 
 
 def _log(msg: str) -> None:
-    # printing from several threads at once would interleave without a lock
     with _print_lock:
         print(msg, flush=True)
 
@@ -110,24 +65,13 @@ def _process_municipality(
     rebuild: bool = False,
 ) -> dict:
     """Process the given month range of one municipality, sequentially month by
-    month. Called from a worker thread in `main` - the concurrency is at the
-    level of municipalities, not of the months within one municipality.
-
-    `retry_from` is the boundary from which a failed month is taken as "may
-    still show up" and is tried again on the next run; everything older is set
-    aside permanently after the first failure (see `HistoryState.mark_failed`).
-
-    `rebuild=True` throws away the current state and builds the history from
-    scratch (the files on disk are overwritten only by the first `save()`, see
-    `HistoryState.save`)."""
+    month, and return its history plus a per-month summary. Runs in a worker
+    thread - the concurrency is across municipalities, not months."""
     state_path = DATA_DIR / f"{municipality_code}.parquet"
     state = HistoryState() if rebuild else HistoryState.load(state_path)
     already_done = set(state.processed_months)
-    # months whose source file could not be processed once and for which no new
-    # one can appear on the server are not tried a second time - they cannot be
-    # filled in anyway and `ingest()` would drop them (see `mark_failed`).
-    # Months ČÚZK has yet to publish are not in `skipped_months`, so they stay
-    # in `todo` and are tried again.
+    # skipped months (missing or damaged) are not tried again
+    # months not published yet stay in todo
     skipped = set(state.skipped_months)
     todo = [m for m in months if m not in already_done and m not in skipped]
 
@@ -140,8 +84,6 @@ def _process_municipality(
             state.ingest(result.gdf, yyyymm)
             ok_count += 1
         else:
-            # the same holds for both a missing and a failed file: retrying only
-            # makes sense for months ČÚZK has yet to publish, see mark_failed()
             state.mark_failed(yyyymm, retry_from)
             if result.missing:
                 missing_count += 1
@@ -161,8 +103,6 @@ def _process_municipality(
          f"{_plural(len(todo), 'month')} processed "
          f"(ok={ok_count}, missing={missing_count}, errors={error_count}), "
          f"{len(hist)} history rows")
-    # a hole inside the series distorts the history (see `gap_months`), months
-    # missing before its start do not - hence they are reported separately
     skipped_in_range = state.skipped_in(months)
     series_start = min(state.processed_months) if state.processed_months else None
     inside = [m for m in skipped_in_range if series_start is not None and m > series_start]
@@ -186,12 +126,8 @@ def _process_municipality(
 
 def _resolve_municipalities(args) -> tuple[list[tuple[str, str, float]], str]:
     """Pick the list of municipalities to process out of the arguments, plus the
-    name of the combined export.
-
-    `--municipality` takes precedence over `--region`; names for the given codes
-    are looked up in `regions.py` so that the `municipality_name` column stays
-    readable even for manually listed codes (for an unknown code the code itself
-    is kept as the name)."""
+    name of the combined export. `--municipality` takes precedence over
+    `--region`; an unknown code keeps the code itself as its name."""
     if not args.municipality:
         municipalities = REGIONS[args.region]
         if args.limit:
@@ -207,12 +143,9 @@ def _resolve_municipalities(args) -> tuple[list[tuple[str, str, float]], str]:
 
 def _resolve_latest_month(session: requests.Session) -> tuple[str, bool]:
     """The newest published month and whether it could actually be determined.
-
     When the /vfr/ listing is unavailable it falls back to the current calendar
-    month and returns False. The caller must then not declare any failed month
-    final - it does not know the real boundary of the published archive, so it
-    could permanently set aside a month ČÚZK has yet to publish (see
-    `HistoryState.mark_failed`)."""
+    month and returns False, and the caller must then not declare any failed
+    month final."""
     try:
         return latest_available_month(session=session), True
     except Exception as exc:
@@ -224,8 +157,8 @@ def _resolve_latest_month(session: requests.Session) -> tuple[str, bool]:
 
 
 def _report_clamp(args, months: list[str], latest: str) -> None:
-    """Report whether the given range had to be trimmed to the available archive
-    - so that the user does not wait for data they cannot get in principle."""
+    """Report whether the given range had to be trimmed to the available
+    archive."""
     requested_start = parse_month(args.start)
     if requested_start < months[0]:
         _log(f"Note: the start {requested_start} lies before the start of the ČÚZK archive "
@@ -239,11 +172,8 @@ def _report_clamp(args, months: list[str], latest: str) -> None:
 
 def _check_range(municipalities: list[tuple[str, str, float]], months: list[str], args) -> bool:
     """Verify that the given range can be attached to the current state of every
-    municipality. Returns True when the run should go on.
-
-    This is checked up front and only from the `.progress.json` (see
-    `HistoryState.load_progress`), so it costs nothing and the user learns about
-    a problem before anything starts downloading."""
+    municipality. Returns True when the run should go on. Checked up front from
+    the stored progress, before anything starts downloading."""
     out_of_order: dict[str, list[str]] = {}
     gaps: dict[str, list[str]] = {}
     skipped: dict[str, list[str]] = {}
@@ -262,16 +192,11 @@ def _check_range(municipalities: list[tuple[str, str, float]], months: list[str]
 
     ok = True
 
-    # a warning only: these months were set aside earlier, this run changes
-    # nothing about them and they can be filled in solely by a rebuild from
-    # scratch
     if skipped and not args.rebuild:
         _log("Note: these months will be skipped - their source file already failed to "
-             "process once and is not tried again:")
+             "process once and is not tried again (will be tried again with --rebuild):")
         _log_municipalities(skipped, "")
 
-    # --rebuild builds from scratch, so it does not have to attach to the
-    # current state
     if out_of_order and not args.rebuild:
         ok = False
         _log("ERROR: the range reaches before the already processed state. Such snapshots")
@@ -281,9 +206,6 @@ def _check_range(municipalities: list[tuple[str, str, float]], months: list[str]
         _log("       Fix: set --start past the current state, or use --rebuild "
              "(the history is built again from scratch).")
 
-    # not gated by anything: a hole made on purpose would quietly distort the
-    # history, and unlike a hole in the source data it always has a free fix -
-    # the months are on the server, the range just did not ask for them
     if gaps and not args.rebuild:
         ok = False
         _log("ERROR: after this run a hole would remain in the series of months. An object")
@@ -307,11 +229,8 @@ def _plural(n: int, singular: str, plural: str | None = None) -> str:
 
 def _format_months(months: list[str], max_listed: int = 6) -> str:
     """The number of months and which ones they are ('1 month: 201605',
-    '12 months: 202501-202512').
-
-    A contiguous series is shortened to `from-to`; a non-contiguous selection
-    (typically several separate holes) is listed month by month, because
-    `from-to` would claim something different from what is really in the list."""
+    '12 months: 202501-202512'). A contiguous series is shortened to `from-to`,
+    a non-contiguous one is listed month by month."""
     count = _plural(len(months), "month")
     if len(months) == 1:
         return f"{count}: {months[0]}"
@@ -324,8 +243,8 @@ def _format_months(months: list[str], max_listed: int = 6) -> str:
 
 
 def _log_municipalities(problems: dict[str, list[str]], prefix: str, max_rows: int = 5) -> None:
-    """Print the first few problematic municipalities - for a whole region a
-    listing of all the hundreds of rows would drown the error message itself."""
+    """Print the first few problematic municipalities - a whole region would
+    drown the error message itself."""
     for where, months in list(problems.items())[:max_rows]:
         _log(f"  {where}: {prefix}{_format_months(months)}")
     if len(problems) > max_rows:
@@ -358,9 +277,6 @@ def main() -> None:
     out_name = args.name or default_name
 
     session = requests.Session()
-    # the default pool_maxsize (10) would be easily exhausted by concurrent
-    # threads and connections would then not be reused (a silent loss of the
-    # keep-alive benefit)
     adapter = requests.adapters.HTTPAdapter(
         pool_connections=max(args.workers, 10), pool_maxsize=max(args.workers, 10)
     )
@@ -376,10 +292,6 @@ def main() -> None:
         sys.exit(2)
 
     if not months:
-        # tell "not out yet" apart from "such a month never existed": the former
-        # is the normal state during monthly topping up (ČÚZK publishes with a
-        # delay), not an error, so we do not exit with a non-zero code - a
-        # regularly scheduled job would otherwise report a failure every month
         if parse_month(args.start) > latest:
             _log(f"Nothing to do: {parse_month(args.start)} is not published yet "
                  f"(the last available one is {latest}).")
@@ -400,8 +312,6 @@ def main() -> None:
          f"{args.workers} concurrent threads, delay={args.delay}s/request"
          + (", REBUILD (the state is built from scratch)" if args.rebuild else ""))
 
-    # from which month on a failure is taken as temporary and tried again next
-    # time; without a reliable `latest` nothing is declared final
     retry_from = latest if latest_known else months[0]
 
     listing_cache = MonthListingCache()
@@ -418,7 +328,7 @@ def main() -> None:
             code, name = futures[future]
             try:
                 results.append(future.result())
-            except Exception as exc:  # one municipality must not bring down the whole run
+            except Exception as exc:
                 _log(f"  [{name} {code}] FAILED: {exc}")
 
     elapsed = time.monotonic() - t0

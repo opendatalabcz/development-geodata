@@ -1,12 +1,5 @@
 """Parsing of RÚIAN VFR XML files of type OB_UKSH (building objects, full
 complete dataset) into a geopandas.GeoDataFrame with real geometry.
-
-Unlike the earlier prototype in analyza/*.ipynb (function flatten_element),
-here the GML geometry (gml:MultiSurface / gml:Polygon / exterior / interior)
-is assembled into actual shapely objects - it is not flattened into a plain
-list of coordinates, so polygon holes and true multipolygons are preserved.
-
-The coordinate system of the data is EPSG:5514 (S-JTSK / Krovak East North).
 """
 
 from __future__ import annotations
@@ -20,11 +13,11 @@ from lxml import etree
 from shapely.geometry import MultiPolygon, Point, Polygon
 
 GML_NS = "{http://www.opengis.net/gml/3.2}"
+# S-JTSK / Krovak East North
 CRS_VFR = "EPSG:5514"
 
-# StavebniObjekt attributes taken as scalar columns (geometry aside).
-# Key = resulting column name (English, snake_case), value = local name of the
-# XML element per the VFR schema (that one stays unchanged).
+# key = resulting column name (English, snake_case), value = the element name
+# per the VFR schema
 SCALAR_FIELDS = {
     "code": "Kod",
     "building_type_code": "TypStavebnihoObjektuKod",
@@ -48,9 +41,8 @@ SCALAR_FIELDS = {
 NUMERIC_FIELDS = ("unit_count", "floor_count", "built_up_area")
 DATE_FIELDS = ("record_valid_from", "completion_date")
 
-# Attributes that routinely change on "the same" object without any real
-# substantive change (transaction metadata) - ignored when diffing, see
-# changefile.py.
+# attributes that change on the same object without a substantive change
+# (transaction metadata) - ignored when diffing
 VOLATILE_FIELDS = ("record_valid_from", "change_proposal_global_id", "transaction_id")
 
 
@@ -219,21 +211,7 @@ def parse_header(xml_path: str | Path) -> VfrHeader:
 
 
 def parse_building_objects(xml_source, snapshot_date=None, source_name: str | None = None) -> gpd.GeoDataFrame:
-    """Parse StavebniObjekty from a VFR XML (OB_UKSH) into a GeoDataFrame.
-
-    Parameters
-    ----------
-    xml_source:
-        path to the VFR XML file (str/Path), OR a file-like object of bytes
-        (e.g. `io.BytesIO` of a downloaded and decompressed file - nothing has
-        to be written to disk)
-    snapshot_date:
-        date of the snapshot; if None, taken from the file header
-        (vf:Hlavicka/Datum)
-    source_name:
-        name of the source file for the `source_file` column; derived
-        automatically from a path, has to be supplied for a file-like object
-    """
+    """Parse StavebniObjekty from a VFR XML (OB_UKSH) into a GeoDataFrame."""
     if isinstance(xml_source, (str, Path)):
         xml_path = Path(xml_source)
         tree = etree.parse(str(xml_path))

@@ -1,5 +1,5 @@
 """Named regions (lists of municipality codes) for batch runs of the pipeline
-over several municipalities at once - see `build_region.py`.
+over several municipalities at once.
 
 The municipality codes are real RÚIAN codes, looked up in the public ArcGIS
 REST API of ČÚZK (https://ags.cuzk.cz/arcgis/rest/services/RUIAN/MapServer/12,
@@ -14,16 +14,11 @@ layer "Obec"), not guessed from the name. `BRNO_AREA` was built like this
        Brno (code 582786)
     4. the 30 geographically closest municipalities (Brno + 29 neighbours),
        sorted by distance
-
-Overview: 4 km - Brno itself, further out Ostopovice, Modřice, Kuřim,
-Šlapanice etc. (typical nearby suburban municipalities), the most distant of
-the thirty is ~12 km from the centre.
 """
 
 from __future__ import annotations
 
-# (municipality_code, name, distance_from_brno_km) - sorted from the closest
-# (Brno = 0)
+# (municipality_code, name, distance_from_brno_km), sorted from the closest
 BRNO_AREA: list[tuple[str, str, float]] = [
     ("582786", "Brno", 0.0),
     ("583596", "Ostopovice", 6.4),

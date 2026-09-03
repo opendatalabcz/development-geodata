@@ -14,10 +14,7 @@ def write_geopackage(
     building_objects: gpd.GeoDataFrame,
 ) -> None:
     """Save the complete (versioned) history into a .gpkg (layer
-    'building_objects'). Rows with a closed version (`end_reason` filled in,
-    i.e. `valid_to IS NOT NULL`) are just a subset of this layer - whoever needs
-    them separately filters them out on the spot, there is no reason to
-    duplicate them into a layer/file of their own."""
+    'building_objects')."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 

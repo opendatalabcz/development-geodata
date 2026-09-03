@@ -1,16 +1,8 @@
 """Download of monthly VFR files (OB_UKSH), one municipality at a time, from
-services.cuzk.gov.cz/vfr - without writing any intermediate files to disk.
-
-Directory layout on the server: /vfr/{YYYYMM}/{YYYYMMDD}_OB_{code}_UKSH.xml.*
-The suffix changed over time (.xml.gz until roughly 2020, .xml.zip later), so
-the actual file name is always looked up in the directory listing of the given
-month - it is never assembled "blindly" from a template.
-
-The available range is <ARCHIVE_START, `latest_available_month()`>; ČÚZK does
-not publish older monthly snapshots and has not published the last month or
-two yet. The file format does not change across that whole range (same
-namespaces and the same set of StavebniObjekt elements), so `vfr_parser`
-handles an old snapshot exactly like a new one.
+services.cuzk.gov.cz/vfr - without writing any intermediate files to disk. The
+file name is always looked up in the directory listing of the given month,
+never assembled from a template: the suffix changed over time (.xml.gz until
+roughly 2020, .xml.zip later).
 """
 
 from __future__ import annotations
@@ -35,26 +27,18 @@ USER_AGENT = (
     "CVUT FIT"
 )
 
-# The oldest month ČÚZK publishes on /vfr/. Older monthly snapshots do not
-# exist (RÚIAN has been published this way only since August 2015), so there is
-# no point in asking the server for them at all - see `month_range(clamp=True)`.
+# the oldest month RÚIAN publishes
 ARCHIVE_START = "201508"
 
-# Reported by `fetch_municipality_snapshot` when the source file is simply not
-# on the server (as opposed to a download/parse failure); callers tell the two
-# apart by comparing against this constant.
 MISSING_FILE_ERROR = "no source file for this month"
 
+# <a href="20260601_OB_539309_UKSH.xml.zip">20260601_OB_539309_UKSH.xml.zip</a>
 _FILE_ROW_RE = re.compile(r'<a href="([^"]+)">\1</a>')
 
-# YYYYMM (6 digits) or YYYY-M / YYYY-MM; 5 digits without a dash is an
-# ambiguous typo, not a shorthand -> rejected
+# YYYYMM (6 digits) or YYYY-M / YYYY-MM
 _MONTH_ARG_RE = re.compile(r"^(\d{4})(?:-(\d{1,2})|(\d{2}))$")
 
-# The listing of the root /vfr/ has a different shape than the listing of a
-# month: the href is an absolute path ("/vfr/202606") and the text is just the
-# month itself - hence a dedicated regex instead of `_FILE_ROW_RE` (that one
-# relies on href and text being identical).
+# <a href="/vfr/202606">202606</a>
 _MONTH_DIR_RE = re.compile(r'<a href="[^"]*">(\d{6})</a>')
 
 
@@ -87,8 +71,7 @@ def list_month_files(yyyymm: str, session: requests.Session | None = None) -> li
 
 def _match_municipality_filename(municipality_code: str, filenames: list[str]) -> str | None:
     """Pick the exact name of the OB_<municipality_code>_UKSH file out of a
-    directory listing (see `list_month_files`), or None - a pure function, no
-    I/O."""
+    directory listing, or None."""
     pattern = re.compile(rf"^\d{{8}}_OB_{re.escape(municipality_code)}_UKSH\.xml\.(zip|gz)$")
     for name in filenames:
         if pattern.match(name):
@@ -107,15 +90,9 @@ def find_municipality_filename(
 
 
 class MonthListingCache:
-    """Shared cache of the /vfr/{yyyymm}/ directory listings across municipalities.
-
-    The directory listing of a given month is the same for every municipality,
-    so when processing several municipalities at once (see `build_region.py`)
-    it is enough to download it once and reuse it - instead of every
-    municipality fetching it separately. Thread-safe (several threads may ask
-    for the same or different months at once), see `ThreadPoolExecutor` in
-    `build_region.py`.
-    """
+    """Shared cache of the /vfr/{yyyymm}/ directory listings across
+    municipalities. The listing is the same for every municipality in a month,
+    so it is downloaded once and reused."""
 
     def __init__(self) -> None:
         self._data: dict[str, list[str]] = {}
@@ -126,10 +103,8 @@ class MonthListingCache:
             cached = self._data.get(yyyymm)
         if cached is not None:
             return cached
-        # the network call is deliberately outside the lock so that threads
-        # waiting for other months do not block each other (two threads
-        # downloading the same month at once does no harm, one result is just
-        # thrown away)
+        # the network call stays outside the lock, so two threads may fetch the
+        # same month - one result is then thrown away
         files = list_month_files(yyyymm, session=session)
         with self._lock:
             self._data.setdefault(yyyymm, files)
@@ -153,12 +128,7 @@ def fetch_municipality_snapshot(
     listing_cache: MonthListingCache | None = None,
 ) -> MunicipalitySnapshotResult:
     """Download and parse a single monthly snapshot of one municipality - all
-    in memory, nothing is written to disk.
-
-    `listing_cache`: when supplied, it is used to obtain the directory listing
-    of the given month instead of issuing an own request (see
-    `MonthListingCache`) - worth it when processing several municipalities at
-    once."""
+    in memory, nothing is written to disk."""
     session = session or requests
     try:
         try:
@@ -187,7 +157,7 @@ def fetch_municipality_snapshot(
         xml_bytes = _extract_xml_bytes(resp.content, filename)
         gdf = parse_building_objects(io.BytesIO(xml_bytes), source_name=filename)
         return MunicipalitySnapshotResult(yyyymm, municipality_code, filename, gdf)
-    except Exception as exc:  # network error, corrupted file etc. - must not kill the whole run
+    except Exception as exc:
         return MunicipalitySnapshotResult(yyyymm, municipality_code, None, None, error=str(exc))
 
 
@@ -201,15 +171,7 @@ def list_available_months(session: requests.Session | None = None) -> list[str]:
 
 
 def latest_available_month(session: requests.Session | None = None) -> str:
-    """The newest month ČÚZK has actually published.
-
-    This is not the same as the current calendar month: the files for the month
-    currently running (and often for the previous one too) are not out yet.
-    Taking `current_month()` as the upper bound therefore means asking for
-    directories that do not exist - and every such month then ends up among the
-    pending ones and is retried on every further run (see
-    `HistoryState.mark_failed`). It costs one request to `/vfr/`, and that one
-    is made once per run."""
+    """The newest month ČÚZK has actually published."""
     months = list_available_months(session=session)
     if not months:
         raise ValueError("the /vfr/ listing returned no month")
@@ -217,13 +179,7 @@ def latest_available_month(session: requests.Session | None = None) -> str:
 
 
 def parse_month(value: str) -> str:
-    """Normalise a month into the canonical YYYYMM form.
-
-    Accepts both `202607` and `2026-7` / `2026-07` - so the user does not have
-    to watch out for the leading zero. On nonsensical input (month 13, a typo)
-    it deliberately raises ValueError instead of silently assembling a
-    non-existent directory that would then be requested from the server in
-    vain."""
+    """Normalise a month into the canonical YYYYMM form."""
     text = str(value).strip()
     match = _MONTH_ARG_RE.match(text)
     if match is None:
@@ -246,27 +202,10 @@ def month_range(
     clamp: bool = True,
     latest: str | None = None,
 ) -> list[str]:
-    """Generate the list of YYYYMM from `start` to `end` (inclusive).
-
-    Both bounds are accepted in either notation (`202607` as well as `2026-7`,
-    see `parse_month`).
-
-    `clamp=True` (the default) trims the range at both ends to what can exist
-    on the server at all: at the bottom to `ARCHIVE_START`, at the top to
-    `latest`. Without it a query like "from 2000 to 2030" would mean hundreds of
-    requests for non-existent directories - each ending in a 404 and being
-    retried on every further run. The trimmed range may come out empty (it lies
-    entirely outside the archive); the caller has to check for that.
-
-    `latest` is both the upper bound and the default `end`; when not given it
-    means the current calendar month. That is only an offline estimate though -
-    ČÚZK typically has not published the last month or two yet, so a caller
-    that is going to hit the network anyway should pass the real value from
-    `latest_available_month()`.
-
-    A reversed range (`start` > `end`) is always a user error - it used to
-    silently return an empty list and the run looked successful even though it
-    did nothing."""
+    """Generate the list of YYYYMM from `start` to `end` (inclusive). With
+    `clamp=True` (the default) the range is trimmed to what can exist on the
+    server - `ARCHIVE_START` at the bottom, `latest` at the top - and may come
+    out empty; a reversed range raises ValueError."""
     latest = parse_month(latest) if latest is not None else current_month()
     start = parse_month(start)
     end = parse_month(end) if end is not None else latest
@@ -301,9 +240,8 @@ def fetch_municipality_history_stream(
     listing_cache: MonthListingCache | None = None,
 ):
     """Generator: downloads and parses the snapshots of one municipality month
-    by month (at a polite request rate - `delay_s` between requests) and yields
-    them one after another. Nothing is written to disk - the caller keeps the
-    state itself (see history.py)."""
+    by month, `delay_s` apart, and yields them one after another. Nothing is
+    written to disk - the caller keeps the state itself."""
     session = session or requests.Session()
     months = months or month_range(latest=latest_available_month(session=session))
 
