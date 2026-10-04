@@ -105,3 +105,21 @@ výchozí rozsah od `201508` u nich funguje dál.
 resp. jméno regionu (přepíše `--name`). GeoParquet obsahuje atributy i geometrii v jedné tabulce (CRS v metadatech,
 seznamové sloupce zůstávají seznamy) a je hlavním výstupem pro další zpracování.
 CSV (atributy) a GeoJSON (geometrie) jsou doplňkové a propojitelné přes sloupec `code`.
+
+### Typy sloupců
+
+Typy se nastavují už v parseru (`vfr_parser.coerce_dtypes`), takže je má i
+průběžný stav v `navrh/data/history/`.
+
+| sloupce | typ |
+|---|---|
+| `code`, `gml_id`, všechny `*_code`, `*_id`, `district_code` | řetězec |
+| `unit_count`, `floor_count` | celé číslo (nullable `int32`) |
+| `built_up_area` | `float64` |
+| `record_valid_from`, `completion_date`, `snapshot_date`, `valid_from`, `valid_to` | `date` |
+| `house_numbers`, `parcel_ids` | seznam řetězců (`null`, když nejsou) |
+| `geometry` | `Polygon`/`MultiPolygon` v EPSG:5514, `null` bez hranice objektu; neplatné polygony se **nechávají** (opravuje je až čištění) |
+| `reference_point` | `Point` v EPSG:5514 (definiční bod), může být `null` |
+
+Hodnoty, které nejdou převést na daný typ (např. nečíselný počet bytů), se
+uloží jako `null`.
