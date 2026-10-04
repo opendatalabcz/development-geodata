@@ -6,7 +6,7 @@ Modules:
     history        - HistoryState: versioned history (SCD2) from the snapshots
     build_region   - the entry point: downloads and processes a month range
     regions        - named lists of municipalities for batch runs
-    export_gpkg    - saving into GeoPackage
+    export_parquet - saving into GeoParquet (attributes + geometry in one table)
     export_tabular - CSV (attributes) + GeoJSON (geometry), joined on `code`
     _util          - shared helpers for the export
 

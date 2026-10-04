@@ -101,6 +101,7 @@ výchozí rozsah od `201508` u nich funguje dál.
 
 ## Výstupy
 
-`navrh/output/<jméno>_history.{gpkg,csv,geojson}`, kde `<jméno>` je kód obce
-resp. jméno regionu (přepíše `--name`). CSV (atributy) a GeoJSON (geometrie)
-jsou propojitelné přes sloupec `code`.
+`navrh/output/<jméno>_history.{parquet,csv,geojson}`, kde `<jméno>` je kód obce
+resp. jméno regionu (přepíše `--name`). GeoParquet obsahuje atributy i geometrii v jedné tabulce (CRS v metadatech,
+seznamové sloupce zůstávají seznamy) a je hlavním výstupem pro další zpracování.
+CSV (atributy) a GeoJSON (geometrie) jsou doplňkové a propojitelné přes sloupec `code`.

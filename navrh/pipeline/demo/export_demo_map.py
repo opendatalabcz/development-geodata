@@ -5,7 +5,7 @@ currently valid building objects coloured by their completion year, with labels
 for the codes taken from the ČÚZK code lists.
 
 Reads the current output of the main pipeline
-(navrh/output/539309_history.gpkg), the result is stored separately in
+(navrh/output/539309_history.parquet), the result is stored separately in
 navrh/output/demo/.
 
 Usage (from the repository root):
@@ -72,8 +72,8 @@ def _geom_to_coords(geom, precision: int = 1):
     return None
 
 
-def build_demo_map_json(history_gpkg: Path, out_json: Path) -> None:
-    hist = gpd.read_file(history_gpkg, layer="building_objects")
+def build_demo_map_json(history_parquet: Path, out_json: Path) -> None:
+    hist = gpd.read_parquet(history_parquet)
 
     version_count = hist.groupby("code").size().rename("version_count")
     current = hist[hist["end_reason"].isna()].copy()
@@ -120,4 +120,4 @@ def build_demo_map_json(history_gpkg: Path, out_json: Path) -> None:
 
 
 if __name__ == "__main__":
-    build_demo_map_json(OUTPUT_DIR / "539309_history.gpkg", DEMO_OUT_DIR / "539309_completion.json")
+    build_demo_map_json(OUTPUT_DIR / "539309_history.parquet", DEMO_OUT_DIR / "539309_completion.json")
