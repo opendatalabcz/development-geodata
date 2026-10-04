@@ -10,7 +10,3 @@ Modules:
     export_tabular - CSV (attributes) + GeoJSON (geometry), joined on `code`
     _util          - shared helpers for the export
 
-Subfolders:
-    demo - scripts for demo/presentation outputs
-    old  - previous iterations, kept for reference
-"""
