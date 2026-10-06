@@ -17,7 +17,6 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from shapely.validation import make_valid
 
 from navrh.pipeline.export_parquet import write_geoparquet
 
@@ -249,22 +248,6 @@ def fill_completion_date_across_versions(df: pd.DataFrame, log: CleaningLog) -> 
     df[col] = completion
 
 
-def repair_or_null_geometry(gdf: gpd.GeoDataFrame, log: CleaningLog) -> gpd.GeoDataFrame:
-    bad = gdf.geometry.notna() & ~gdf.geometry.is_valid
-    for idx in gdf.index[bad]:
-        geom = gdf.at[idx, "geometry"]
-        repaired = make_valid(geom)
-        if repaired.is_valid and not repaired.is_empty:
-            gdf.at[idx, "geometry"] = repaired
-            log.add(gdf.at[idx, "code"], idx, "geometry", geom.wkt, repaired.wkt, "repaired_geometry",
-                     "invalid geometry (self-intersection or similar), repaired")
-        else:
-            gdf.at[idx, "geometry"] = None
-            log.add(gdf.at[idx, "code"], idx, "geometry", geom.wkt, None, "nulled_value",
-                     "invalid geometry, could not be repaired")
-    return gdf
-
-
 def clean_history(in_path: Path, out_path: Path, log_path: Path) -> None:
     df = load_history(in_path)
     check_scd2_invariants(df)
@@ -277,7 +260,6 @@ def clean_history(in_path: Path, out_path: Path, log_path: Path) -> None:
     null_implausible_completion_dates(df, log)
     fill_completion_date_across_versions(df, log)
 
-    # df = repair_or_null_geometry(df, log)  # not needed so far: no invalid geometries in the data
 
     for col in GEOMETRY_COLS:
         df[f"{col}_wgs84"] = df[col].to_crs(WGS84_EPSG)
