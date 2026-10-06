@@ -210,16 +210,7 @@ def null_implausible_completion_dates(df: pd.DataFrame, log: CleaningLog) -> Non
 
 
 def fill_completion_date_across_versions(df: pd.DataFrame, log: CleaningLog) -> None:
-    """completion_date describes the object, not the version: a still-null
-    version is filled from the nearest earlier version of the same `code`
-    that already has a value, falling back to the nearest later version only
-    when no earlier one exists - this also covers a retrospective correction
-    (a later version recording an earlier date than one already known), which
-    then applies only from that later version onward. A version keeps its own
-    recorded value even when a later correction suggests it was wrong, and a
-    value is never propagated into a version it would place after that
-    version's own valid_from - the object was evidently still under
-    construction then."""
+    """Fill missing completion_date values from other versions of the same object; the rules are in the README."""
     col = "completion_date"
     codes = pd.to_numeric(df["code"]).to_numpy()
     valid_from = df["valid_from"].to_numpy()
