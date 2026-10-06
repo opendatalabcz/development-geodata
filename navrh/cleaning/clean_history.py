@@ -1,15 +1,5 @@
 """Clean one `<name>_history.parquet` produced by
-`navrh/pipeline/build_region.py`, per the rules in `README.md`
-(next to this script):
-
-    A. row missing an identifying/structural column -> row dropped
-    B. categorical code outside its RÚIAN codelist -> value nulled
-    C/D. numeric or date attribute outside a plausible range -> value nulled
-    E. optional descriptive attributes -> left untouched, missing is fine
-    F. invalid geometry -> repaired if possible, else nulled (currently disabled)
-    G. SCD2 invariants (valid_from/valid_to/end_reason, ...) -> only asserted,
-       never silently fixed; a violation aborts the run
-    H. `geometry_wgs84` and `reference_point_wgs84` columns added (EPSG:4326 copies)
+`navrh/pipeline/build_region.py`, per the rules in the `README.md` next to this script.
 
 The cleaned GeoParquet goes to `navrh/clean_output/`; the log of every
 drop/null/fill goes to `navrh/cleaning/logs/<name>_cleaning_log.csv`.
