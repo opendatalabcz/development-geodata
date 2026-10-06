@@ -101,10 +101,11 @@ výchozí rozsah od `201508` u nich funguje dál.
 
 ## Výstupy
 
-`navrh/output/<jméno>_history.{parquet,csv,geojson}`, kde `<jméno>` je kód obce
-resp. jméno regionu (přepíše `--name`). GeoParquet obsahuje atributy i geometrii v jedné tabulce (CRS v metadatech,
-seznamové sloupce zůstávají seznamy) a je hlavním výstupem pro další zpracování.
-CSV (atributy) a GeoJSON (geometrie) jsou doplňkové a propojitelné přes sloupec `code`.
+`navrh/output/<jméno>_history.parquet`, kde `<jméno>` je kód obce resp. jméno
+regionu (přepíše `--name`). Jde o GeoParquet: atributy i geometrie jsou v jedné
+tabulce, CRS (EPSG:5514) je v metadatech souboru, seznamové sloupce zůstávají
+seznamy a datumy jsou skutečné `date` (ne časové značky). Soubor se čte např.
+`geopandas.read_parquet(...)`.
 
 ### Typy sloupců
 

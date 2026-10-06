@@ -12,8 +12,8 @@ from .vfr_parser import DATE_FIELDS
 
 
 def write_geoparquet(gdf: gpd.GeoDataFrame, out_path: str | Path, quiet: bool = False) -> None:
-    """Save the history into a GeoParquet file. Unlike the CSV/GeoJSON pair,
-    attributes and geometry stay in one table, list-valued columns are kept as
+    """Save the history into a GeoParquet file. Attributes and geometry
+    stay in one table, list-valued columns are kept as
     lists, date columns are stored as real dates (not timestamps) and the CRS is
     stored in the file metadata."""
     out_path = Path(out_path)
