@@ -9,6 +9,7 @@
     F. invalid geometry -> repaired if possible, else nulled (currently disabled)
     G. SCD2 invariants (valid_from/valid_to/end_reason, ...) -> only asserted,
        never silently fixed; a violation aborts the run
+    H. `geometry_wgs84` and `reference_point_wgs84` columns added (EPSG:4326 copies)
 
 The cleaned GeoParquet goes to `navrh/clean_output/`; the log of every
 drop/null/fill goes to `navrh/cleaning/logs/<name>_cleaning_log.csv`.
@@ -57,6 +58,10 @@ NUMERIC_RANGES = {
 }
 
 MIN_COMPLETION_YEAR = 1000
+
+# geometry stays in S-JTSK (EPSG:5514); `<col>_wgs84` is an added copy for web maps
+GEOMETRY_COLS = ["geometry", "reference_point"]
+WGS84_EPSG = 4326
 
 REQUIRED_COLS = [
     "gml_id", "municipality_code", "municipality_name", "snapshot_date", "source_file",
@@ -292,6 +297,9 @@ def clean_history(in_path: Path, out_path: Path, log_path: Path) -> None:
     fill_completion_date_across_versions(df, log)
 
     # df = repair_or_null_geometry(df, log)  # not needed so far: no invalid geometries in the data
+
+    for col in GEOMETRY_COLS:
+        df[f"{col}_wgs84"] = df[col].to_crs(WGS84_EPSG)
 
     write_geoparquet(df, out_path)
 
