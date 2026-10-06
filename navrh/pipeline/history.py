@@ -22,11 +22,12 @@ import geopandas as gpd
 import pandas as pd
 
 from .download import month_range
-from .vfr_parser import CRS_VFR, VOLATILE_FIELDS
+from .export_parquet import write_geoparquet
+from .vfr_parser import CRS_VFR, VOLATILE_FIELDS, coerce_dtypes
 
 # control/metadata columns, not substantive attributes of a building object
 _NON_ATTR_COLS = {
-    "code", "gml_id", "geometry", "reference_point", "has_polygon",
+    "code", "gml_id", "geometry", "reference_point",
     "snapshot_date", "source_file",
     "valid_from", "valid_to", "end_reason",
     *VOLATILE_FIELDS,
@@ -44,14 +45,19 @@ def _geoms_equal(a, b) -> bool:
         return False
 
 
+def _is_missing(v) -> bool:
+    return v is None or (not isinstance(v, (list, tuple)) and bool(pd.isna(v)))
+
+
 def _row_differs(old: dict, new: dict, attr_cols: list[str]) -> bool:
     for c in attr_cols:
         ov, nv = old.get(c), new.get(c)
-        if pd.isna(ov) and pd.isna(nv):
+        if _is_missing(ov) and _is_missing(nv):
             continue
-        if ov != nv:
+        if _is_missing(ov) or _is_missing(nv) or ov != nv:
             return True
-    return not _geoms_equal(old.get("geometry"), new.get("geometry"))
+    return not (_geoms_equal(old.get("geometry"), new.get("geometry"))
+                and _geoms_equal(old.get("reference_point"), new.get("reference_point")))
 
 
 class HistoryState:
@@ -198,7 +204,7 @@ class HistoryState:
         if not self.rows:
             return gpd.GeoDataFrame(columns=["code", "valid_from", "valid_to", "end_reason", "geometry"],
                                      geometry="geometry", crs=CRS_VFR)
-        df = pd.DataFrame(list(self.rows.values()))
+        df = coerce_dtypes(pd.DataFrame(list(self.rows.values())))
         gdf = gpd.GeoDataFrame(df, geometry="geometry", crs=CRS_VFR)
         if "reference_point" in gdf.columns:
             gdf["reference_point"] = gpd.GeoSeries(gdf["reference_point"], crs=CRS_VFR)
@@ -212,9 +218,7 @@ class HistoryState:
         path.parent.mkdir(parents=True, exist_ok=True)
         gdf = self.to_geodataframe()
 
-        tmp_path = path.with_suffix(path.suffix + ".tmp")
-        gdf.to_parquet(tmp_path)
-        os.replace(tmp_path, path)
+        write_geoparquet(gdf, path, quiet=True)
 
         meta_path = path.with_suffix(".progress.json")
         meta_tmp = meta_path.with_suffix(meta_path.suffix + ".tmp")
@@ -249,7 +253,7 @@ class HistoryState:
         if not path.exists():
             return state
 
-        gdf = gpd.read_parquet(path)
+        gdf = coerce_dtypes(gpd.read_parquet(path))
         state._attr_cols = [c for c in gdf.columns if c not in _NON_ATTR_COLS]
         for row_id, row in enumerate(gdf.to_dict("records")):
             state.rows[row_id] = row

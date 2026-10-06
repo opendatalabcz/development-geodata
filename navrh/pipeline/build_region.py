@@ -2,7 +2,7 @@
 RÚIAN snapshots (OB_UKSH) for one municipality, a list of municipalities or a
 whole named region, and builds the versioned history of building objects (SCD2)
 out of them. The month range is given via `--start` / `--end`, municipalities
-are processed concurrently, and a single combined export (GPKG + CSV + GeoJSON)
+are processed concurrently, and a single combined export (GeoParquet + CSV + GeoJSON)
 is produced at the end.
 
 Usage (from the repository root):
@@ -34,7 +34,7 @@ from .download import (
     month_range,
     parse_month,
 )
-from .export_gpkg import write_geopackage
+from .export_parquet import write_geoparquet
 from .export_tabular import write_csv_and_geojson
 from .history import HistoryState
 from .regions import REGIONS
@@ -352,7 +352,7 @@ def main() -> None:
     combined = combined.sort_values(["municipality_code", "code", "valid_from"]).reset_index(drop=True)
 
     name = f"{out_name}_history"
-    write_geopackage(OUT_DIR / f"{name}.gpkg", combined)
+    write_geoparquet(combined, OUT_DIR / f"{name}.parquet")
     write_csv_and_geojson(combined, OUT_DIR, name,
                            keep_cols=["code", "municipality_code", "municipality_name",
                                       "valid_from", "valid_to", "end_reason"])

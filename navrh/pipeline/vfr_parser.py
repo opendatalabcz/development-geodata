@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from lxml import etree
 from shapely.geometry import MultiPolygon, Point, Polygon
@@ -38,8 +39,10 @@ SCALAR_FIELDS = {
     "iskn_building_id": "IsknBudovaId",
 }
 
-NUMERIC_FIELDS = ("unit_count", "floor_count", "built_up_area")
-DATE_FIELDS = ("record_valid_from", "completion_date")
+INTEGER_FIELDS = ("unit_count", "floor_count")
+FLOAT_FIELDS = ("built_up_area",)
+DATE_FIELDS = ("record_valid_from", "completion_date", "snapshot_date", "valid_from", "valid_to")
+LIST_FIELDS = ("house_numbers", "parcel_ids")
 
 # attributes that change on the same object without a substantive change
 # (transaction metadata) - ignored when diffing
@@ -84,9 +87,10 @@ def parse_boundary(boundary_el) -> Polygon | MultiPolygon | None:
     if boundary_el is None:
         return None
 
+    # invalid polygons are kept on purpose - repairing them is up to the cleaning
     polygons = [
         p for p in (_parse_polygon_el(pe) for pe in boundary_el.iter(f"{GML_NS}Polygon"))
-        if p is not None and p.is_valid and not p.is_empty
+        if p is not None and not p.is_empty
     ]
     if not polygons:
         return None
@@ -111,17 +115,16 @@ def parse_reference_point(point_el) -> Point | None:
         return None
 
 
-def _house_numbers(el) -> str | None:
+def _house_numbers(el) -> list[str] | None:
     values = [
         _text(c.find("*"))
         for c in el.findall("*")
         if _local(c.tag) == "CislaDomovni"
     ]
-    values = [v for v in values if v]
-    return "; ".join(values) if values else None
+    return [v for v in values if v] or None
 
 
-def _parcel_ids(el) -> str | None:
+def _parcel_ids(el) -> list[str] | None:
     ids = []
     for c in el:
         if _local(c.tag) != "IdentifikacniParcela":
@@ -129,8 +132,7 @@ def _parcel_ids(el) -> str | None:
         for sub in c:
             if _local(sub.tag) == "Id":
                 ids.append(_text(sub))
-    ids = [i for i in ids if i]
-    return "; ".join(ids) if ids else None
+    return [i for i in ids if i] or None
 
 
 def _district_code(el) -> str | None:
@@ -169,20 +171,38 @@ def _building_object_to_row(el) -> dict:
                 boundary = parse_boundary(c)
 
     row["reference_point"] = point
-    row["geometry"] = boundary if boundary is not None else point
-    row["has_polygon"] = boundary is not None
+    row["geometry"] = boundary
     return row
 
 
-def _coerce_types(df: pd.DataFrame) -> pd.DataFrame:
+def coerce_dtypes(df: pd.DataFrame) -> pd.DataFrame:
+    """Give the columns their final types (the single definition of the schema
+    for the attributes; codes and identifiers stay strings). Safe to call on
+    data that already has the types. Dates are truncated to midnight; values
+    that cannot be converted become missing."""
     df = df.copy()
     for col in DATE_FIELDS:
         if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce")
-    for col in NUMERIC_FIELDS:
+            df[col] = pd.to_datetime(df[col], errors="coerce").astype("datetime64[us]").dt.normalize()
+    for col in INTEGER_FIELDS:
         if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+            num = pd.to_numeric(df[col], errors="coerce")
+            df[col] = num.where(num == num.round()).astype("Int32")
+    for col in FLOAT_FIELDS:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
+    for col in LIST_FIELDS:
+        if col in df.columns:
+            df[col] = df[col].map(_to_list).astype(object)
     return df
+
+
+def _to_list(v) -> list | None:
+    if isinstance(v, str):  # legacy "a; b" strings
+        return v.split("; ")
+    if isinstance(v, (list, tuple, np.ndarray)):
+        return list(v) or None
+    return None if pd.isna(v) else [v]
 
 
 @dataclass
@@ -232,13 +252,13 @@ def parse_building_objects(xml_source, snapshot_date=None, source_name: str | No
     rows = [_building_object_to_row(el) for el in building_object_els]
     if not rows:
         cols = ["gml_id", *SCALAR_FIELDS, "house_numbers", "parcel_ids",
-                "district_code", "reference_point", "geometry", "has_polygon"]
+                "district_code", "reference_point", "geometry"]
         df = pd.DataFrame(columns=cols)
     else:
         df = pd.DataFrame(rows)
-    df = _coerce_types(df)
     df["snapshot_date"] = snapshot_date
     df["source_file"] = source_name
+    df = coerce_dtypes(df)
 
     gdf = gpd.GeoDataFrame(df, geometry="geometry", crs=CRS_VFR)
     gdf["reference_point"] = gpd.GeoSeries(gdf["reference_point"], crs=CRS_VFR)
