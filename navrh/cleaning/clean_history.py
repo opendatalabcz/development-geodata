@@ -6,7 +6,7 @@
     B. categorical code outside its RÚIAN codelist -> value nulled
     C/D. numeric or date attribute outside a plausible range -> value nulled
     E. optional descriptive attributes -> left untouched, missing is fine
-    F. invalid geometry -> repaired if possible, else nulled
+    F. invalid geometry -> repaired if possible, else nulled (currently disabled)
     G. SCD2 invariants (valid_from/valid_to/end_reason, ...) -> only asserted,
        never silently fixed; a violation aborts the run
 
@@ -291,7 +291,7 @@ def clean_history(in_path: Path, out_path: Path, log_path: Path) -> None:
     null_implausible_completion_dates(df, log)
     fill_completion_date_across_versions(df, log)
 
-    df = repair_or_null_geometry(df, log)
+    # df = repair_or_null_geometry(df, log)  # not needed so far: no invalid geometries in the data
 
     write_geoparquet(df, out_path)
 
