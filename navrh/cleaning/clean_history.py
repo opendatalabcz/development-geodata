@@ -1,5 +1,5 @@
 """Clean one `<name>_history.parquet` produced by
-`navrh/pipeline/build_region.py`, per the rules in `plan_cisteni_dat.md`
+`navrh/pipeline/build_region.py`, per the rules in `README.md`
 (next to this script):
 
     A. row missing an identifying/structural column -> row dropped
