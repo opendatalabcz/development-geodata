@@ -93,7 +93,7 @@ Příklad:
 
 ## Log
 
-Parquet se záznamem každého zásahu. Sloupce:
+CSV se záznamem každého zásahu. Sloupce:
 `code`, `row_index`, `column`, `old_value`, `new_value`, `action`
 (`dropped_row` / `nulled_value` / `filled_value` / `left_null` /
 `repaired_geometry`), `reason` (lidsky čitelný důvod). 

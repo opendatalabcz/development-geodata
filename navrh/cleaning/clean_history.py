@@ -11,7 +11,7 @@
        never silently fixed; a violation aborts the run
 
 The cleaned GeoParquet goes to `navrh/clean_output/`; the log of every
-drop/null/fill goes to `navrh/cleaning/logs/<name>_cleaning_log.parquet`.
+drop/null/fill goes to `navrh/cleaning/logs/<name>_cleaning_log.csv`.
 
 Usage:
     python -m navrh.cleaning.clean_history 539309
@@ -70,7 +70,7 @@ LOG_COLS = ["code", "row_index", "column", "old_value", "new_value", "action", "
 
 class CleaningLog:
     """Accumulates one record per row/value touched during cleaning, for the
-    `<name>_cleaning_log.parquet` report."""
+    `<name>_cleaning_log.csv` report."""
 
     def __init__(self):
         self._rows: list[dict] = []
@@ -296,7 +296,7 @@ def clean_history(in_path: Path, out_path: Path, log_path: Path) -> None:
     write_geoparquet(df, out_path)
 
     log_df = log.to_frame()
-    log_df.to_parquet(log_path, index=False)
+    log_df.to_csv(log_path, index=False, encoding="utf-8-sig")
     by_action = ", ".join(f"{n} {a}" for a, n in log_df["action"].value_counts().items())
     print(f"Saved: {log_path} ({len(log_df)} entries: {by_action})")
 
@@ -314,7 +314,7 @@ def main() -> None:
     clean_history(
         args.input_dir / f"{args.name}_history.parquet",
         args.output_dir / f"{args.name}_history_clean.parquet",
-        args.log_dir / f"{args.name}_cleaning_log.parquet",
+        args.log_dir / f"{args.name}_cleaning_log.csv",
     )
 
 
