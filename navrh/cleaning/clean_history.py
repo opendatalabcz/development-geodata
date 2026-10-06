@@ -1,4 +1,4 @@
-"""Clean one `<name>_history.csv` / `<name>_history.geojson` pair produced by
+"""Clean one `<name>_history.parquet` produced by
 `navrh/pipeline/build_region.py`, per the rules in `plan_cisteni_dat.md`
 (next to this script):
 
@@ -10,8 +10,8 @@
     G. SCD2 invariants (valid_from/valid_to/end_reason, ...) -> only asserted,
        never silently fixed; a violation aborts the run
 
-The cleaned CSV/GeoJSON go to `navrh/clean_output/`; the log of every
-drop/null/fill goes to `navrh/cleaning/logs/<name>_cleaning_log.csv`.
+The cleaned GeoParquet goes to `navrh/clean_output/`; the log of every
+drop/null/fill goes to `navrh/cleaning/logs/<name>_cleaning_log.parquet`.
 
 Usage:
     python -m navrh.cleaning.clean_history 539309
@@ -28,6 +28,8 @@ import numpy as np
 import pandas as pd
 from shapely.validation import make_valid
 
+from navrh.pipeline.export_parquet import write_geoparquet
+
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent
 OUT_DIR = REPO_ROOT / "navrh" / "output"
@@ -35,7 +37,7 @@ CLEAN_OUTPUT_DIR = REPO_ROOT / "navrh" / "clean_output"
 LOG_DIR = SCRIPT_DIR / "logs"
 CODELIST_DIR = REPO_ROOT / "analyza" / "ciselniky"
 
-# column -> codelist CSV in CODELIST_DIR (KOD;NAZEV;..., cp1250, ';'-separated)
+# column -> codelist file in CODELIST_DIR (KOD;NAZEV;..., cp1250, ';'-separated)
 CODELISTS = {
     "building_type_code": "CS_TYP_STAVEBNIHO_OBJEKTU.csv",
     "usage_type_code": "CE_ZPUSOB_VYUZITI_OBJEKTU.csv",
@@ -68,7 +70,7 @@ LOG_COLS = ["code", "row_index", "column", "old_value", "new_value", "action", "
 
 class CleaningLog:
     """Accumulates one record per row/value touched during cleaning, for the
-    `<name>_cleaning_log.csv` report."""
+    `<name>_cleaning_log.parquet` report."""
 
     def __init__(self):
         self._rows: list[dict] = []
@@ -81,24 +83,29 @@ class CleaningLog:
         })
 
     def to_frame(self) -> pd.DataFrame:
-        return pd.DataFrame(self._rows, columns=LOG_COLS)
+        log = pd.DataFrame(self._rows, columns=LOG_COLS)
+        # old/new values mix strings, numbers and dates, so they are stored as text
+        for col in ("old_value", "new_value"):
+            log[col] = log[col].map(lambda v: None if v is None or v is pd.NA or v != v else str(v))
+        log["code"] = log["code"].astype(str)
+        return log
 
 
 def _null_and_log(df: pd.DataFrame, mask: pd.Series, col: str, log: CleaningLog, reason: str) -> None:
     for idx in df.index[mask]:
         log.add(df.at[idx, "code"], idx, col, df.at[idx, col], None, "nulled_value", reason)
-    if pd.api.types.is_integer_dtype(df[col]):
+    if pd.api.types.is_integer_dtype(df[col]) and not pd.api.types.is_extension_array_dtype(df[col]):
         # nulling must produce missing, not a 0 that reads back as a real recorded value
         df[col] = df[col].astype("float64")
     df.loc[mask, col] = np.nan
 
 
-def load_history_csv(path: Path) -> pd.DataFrame:
-    df = pd.read_csv(path, encoding="utf-8-sig", low_memory=False)
+def load_history(path: Path) -> gpd.GeoDataFrame:
+    gdf = gpd.read_parquet(path)
     for col in DATE_COLS:
-        if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce")
-    return df
+        if col in gdf.columns:
+            gdf[col] = pd.to_datetime(gdf[col], errors="coerce")
+    return gdf
 
 
 def load_codelists() -> dict[str, set | None]:
@@ -196,7 +203,7 @@ def null_out_of_range(df: pd.DataFrame, log: CleaningLog) -> None:
         _null_and_log(df, bad, col, log, f"outside the plausible range [{lo}, {hi}]")
 
     if "district_code" in df.columns:
-        bad = df["district_code"].notna() & (df["district_code"] <= 0)
+        bad = df["district_code"].notna() & (pd.to_numeric(df["district_code"], errors="coerce") <= 0)
         _null_and_log(df, bad, "district_code", log, "not a positive number")
 
 
@@ -219,7 +226,7 @@ def fill_completion_date_across_versions(df: pd.DataFrame, log: CleaningLog) -> 
     version's own valid_from - the object was evidently still under
     construction then."""
     col = "completion_date"
-    codes = df["code"].to_numpy()
+    codes = pd.to_numeric(df["code"]).to_numpy()
     valid_from = df["valid_from"].to_numpy()
     completion = df[col].to_numpy(copy=True)
 
@@ -272,60 +279,42 @@ def repair_or_null_geometry(gdf: gpd.GeoDataFrame, log: CleaningLog) -> gpd.GeoD
     return gdf
 
 
-def clean_history(csv_path: Path, geojson_path: Path | None,
-                   out_csv_path: Path, out_geojson_path: Path, log_path: Path) -> None:
-    df = load_history_csv(csv_path)
+def clean_history(in_path: Path, out_path: Path, log_path: Path) -> None:
+    df = load_history(in_path)
     check_scd2_invariants(df)
 
     log = CleaningLog()
     df = drop_invalid_identifiers(df, log)
-    keep_keys = set(zip(df["code"], df["valid_from"]))
 
     null_out_of_codelist(df, load_codelists(), log)
     null_out_of_range(df, log)
     null_implausible_completion_dates(df, log)
     fill_completion_date_across_versions(df, log)
 
-    df.to_csv(out_csv_path, index=False, encoding="utf-8-sig")
-    print(f"Saved: {out_csv_path} ({len(df)} rows)")
+    df = repair_or_null_geometry(df, log)
 
-    # if geojson_path is not None:
-    #     gdf = gpd.read_file(geojson_path)
-    #     gdf["code"] = pd.to_numeric(gdf["code"], errors="coerce")
-    #     gdf["valid_from"] = pd.to_datetime(gdf["valid_from"])
-    #     gdf = gdf[[key in keep_keys for key in zip(gdf["code"], gdf["valid_from"])]].reset_index(drop=True)
-    #     gdf = repair_or_null_geometry(gdf, log)
-    #     if out_geojson_path.exists():
-    #         out_geojson_path.unlink()
-    #     gdf.to_file(out_geojson_path, driver="GeoJSON")
-    #     print(f"Saved: {out_geojson_path} ({len(gdf)} features)")
+    write_geoparquet(df, out_path)
 
     log_df = log.to_frame()
-    log_df.to_csv(log_path, index=False, encoding="utf-8-sig")
+    log_df.to_parquet(log_path, index=False)
     by_action = ", ".join(f"{n} {a}" for a, n in log_df["action"].value_counts().items())
     print(f"Saved: {log_path} ({len(log_df)} entries: {by_action})")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Clean a pipeline history CSV/GeoJSON output pair.")
+    parser = argparse.ArgumentParser(description="Clean a pipeline history GeoParquet.")
     parser.add_argument("name", help="base name of the pipeline output, e.g. 539309 or brno_area")
     parser.add_argument("--input-dir", type=Path, default=OUT_DIR)
     parser.add_argument("--output-dir", type=Path, default=CLEAN_OUTPUT_DIR)
     parser.add_argument("--log-dir", type=Path, default=LOG_DIR)
     args = parser.parse_args()
 
-    csv_path = args.input_dir / f"{args.name}_history.csv"
-    geojson_path = args.input_dir / f"{args.name}_history.geojson"
-    if not geojson_path.exists():
-        geojson_path = None
-
     args.output_dir.mkdir(parents=True, exist_ok=True)
     args.log_dir.mkdir(parents=True, exist_ok=True)
     clean_history(
-        csv_path, geojson_path,
-        args.output_dir / f"{args.name}_history_clean.csv",
-        args.output_dir / f"{args.name}_history_clean.geojson",
-        args.log_dir / f"{args.name}_cleaning_log.csv",
+        args.input_dir / f"{args.name}_history.parquet",
+        args.output_dir / f"{args.name}_history_clean.parquet",
+        args.log_dir / f"{args.name}_cleaning_log.parquet",
     )
 
 

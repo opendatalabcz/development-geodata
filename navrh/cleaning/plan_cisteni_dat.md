@@ -1,6 +1,6 @@
 # Poznámky k čištění dat
 
-Čistí se výstup pipeliny — CSV + GeoJSON dvojice (`navrh/output/<jméno>_history.*`)
+Čistí se výstup pipeliny — GeoParquet (`navrh/output/<jméno>_history.parquet`)
 
 
 ## Princip
@@ -93,7 +93,7 @@ Příklad:
 
 ## Log
 
-CSV se záznamem každého zásahu. Sloupce:
+Parquet se záznamem každého zásahu. Sloupce:
 `code`, `row_index`, `column`, `old_value`, `new_value`, `action`
 (`dropped_row` / `nulled_value` / `filled_value` / `left_null` /
 `repaired_geometry`), `reason` (lidsky čitelný důvod). 
