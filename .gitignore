@@ -2,9 +2,12 @@ __pycache__/
 *.pyc
 
 
-# pipeline outputs (regenerable)
+# pipeline outputs
 navrh/output/
-navrh/vystup/
+navrh/clean_output/
+
+# cleaning logs
+navrh/cleaning/logs/
 
 # downloaded history cache
 navrh/data/history/
