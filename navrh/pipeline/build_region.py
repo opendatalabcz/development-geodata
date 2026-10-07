@@ -2,7 +2,7 @@
 RÚIAN snapshots (OB_UKSH) for one municipality, a list of municipalities or a
 whole named region, and builds the versioned history of building objects (SCD2)
 out of them. The month range is given via `--start` / `--end`, municipalities
-are processed concurrently, and a single combined export (GeoParquet + CSV + GeoJSON)
+are processed concurrently, and a single combined GeoParquet export
 is produced at the end.
 
 Usage (from the repository root):

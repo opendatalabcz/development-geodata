@@ -8,7 +8,7 @@ import pandas as pd
 
 def flatten_for_output(df):
     """Prepare attributes for formats that support neither list-valued
-    columns nor more than one geometry column (CSV, GeoJSON)."""
+    columns nor more than one geometry column."""
     df = df.copy()
     for col in df.columns:
         if col == "geometry":
