@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import geopandas as gpd
@@ -9,6 +10,8 @@ import pandas as pd
 import pyarrow as pa
 
 from .vfr_parser import DATE_FIELDS
+
+logger = logging.getLogger(__name__)
 
 
 def write_geoparquet(gdf: gpd.GeoDataFrame, out_path: str | Path, quiet: bool = False) -> None:
@@ -29,4 +32,5 @@ def write_geoparquet(gdf: gpd.GeoDataFrame, out_path: str | Path, quiet: bool = 
     tmp_path.replace(out_path)
 
     if not quiet:
-        print(f"Saved: {out_path}  ({len(gdf)} records, CRS {gdf.crs.to_string() if gdf.crs else None})")
+        logger.info("Saved: %s  (%d records, CRS %s)", out_path, len(gdf),
+                    gdf.crs.to_string() if gdf.crs else None)

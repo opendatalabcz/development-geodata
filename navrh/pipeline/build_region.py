@@ -15,8 +15,8 @@ Usage (from the repository root):
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -46,12 +46,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = REPO_ROOT / "navrh" / "data" / "history"
 OUT_DIR = REPO_ROOT / "navrh" / "output"
 
-_print_lock = threading.Lock()
-
-
-def _log(msg: str) -> None:
-    with _print_lock:
-        print(msg, flush=True)
+logger = logging.getLogger(__name__)
 
 
 def _process_municipality(
@@ -88,7 +83,7 @@ def _process_municipality(
             if result.missing:
                 missing_count += 1
             else:
-                _log(f"  [{name} {yyyymm}] ERROR: {result.error}")
+                logger.error("[%s %s] %s", name, yyyymm, result.error)
                 error_count += 1
 
         if i % 24 == 0 or i == len(todo):
@@ -99,21 +94,27 @@ def _process_municipality(
 
     state.save(state_path)
     hist = state.to_geodataframe()
-    _log(f"  done {name} ({municipality_code}): "
-         f"{_plural(len(todo), 'month')} processed "
-         f"(ok={ok_count}, missing={missing_count}, errors={error_count}), "
-         f"{len(hist)} history rows")
+    logger.info(
+        "done %s (%s): %s processed (ok=%d, missing=%d, errors=%d), %d history rows",
+        name, municipality_code, _plural(len(todo), "month"),
+        ok_count, missing_count, error_count, len(hist),
+    )
     skipped_in_range = state.skipped_in(months)
     series_start = min(state.processed_months) if state.processed_months else None
     inside = [m for m in skipped_in_range if series_start is not None and m > series_start]
     before = [m for m in skipped_in_range if m not in inside]
     if inside:
-        _log(f"    warning: a hole remains in the series - {_format_months(inside)} "
-             f"(the source file could not be processed; it can only be filled in via --rebuild)")
+        logger.warning(
+            "%s (%s): a hole remains in the series - %s (the source file could not be "
+            "processed; it can only be filled in via --rebuild)",
+            name, municipality_code, _format_months(inside),
+        )
     if before:
-        _log(f"    note: {_format_months(before)} missing before the start of the series "
-             f"(the municipality had no data in RÚIAN back then, or the file could not "
-             f"be processed) - not tried again")
+        logger.info(
+            "%s (%s): %s missing before the start of the series (the municipality had "
+            "no data in RÚIAN back then, or the file could not be processed) - not tried again",
+            name, municipality_code, _format_months(before),
+        )
     return {
         "municipality_code": municipality_code,
         "name": name,
@@ -150,9 +151,11 @@ def _resolve_latest_month(session: requests.Session) -> tuple[str, bool]:
         return latest_available_month(session=session), True
     except Exception as exc:
         fallback = current_month()
-        _log(f"Note: the /vfr/ listing could not be loaded ({exc}) - the current month "
-             f"{fallback} is taken as the upper bound and all failed months will be "
-             f"tried again on the next run.")
+        logger.warning(
+            "the /vfr/ listing could not be loaded (%s) - the current month %s is taken "
+            "as the upper bound and all failed months will be tried again on the next run.",
+            exc, fallback,
+        )
         return fallback, False
 
 
@@ -161,13 +164,17 @@ def _report_clamp(args, months: list[str], latest: str) -> None:
     archive."""
     requested_start = parse_month(args.start)
     if requested_start < months[0]:
-        _log(f"Note: the start {requested_start} lies before the start of the ČÚZK archive "
-             f"({ARCHIVE_START}) - range trimmed to {months[0]}.")
+        logger.info(
+            "the start %s lies before the start of the ČÚZK archive (%s) - range trimmed to %s.",
+            requested_start, ARCHIVE_START, months[0],
+        )
     if args.end is not None:
         requested_end = parse_month(args.end)
         if requested_end > months[-1]:
-            _log(f"Note: the end {requested_end} is not published yet "
-                 f"(the last one is {latest}) - range trimmed to {months[-1]}.")
+            logger.info(
+                "the end %s is not published yet (the last one is %s) - range trimmed to %s.",
+                requested_end, latest, months[-1],
+            )
 
 
 def _check_range(municipalities: list[tuple[str, str, float]], months: list[str], args) -> bool:
@@ -193,29 +200,33 @@ def _check_range(municipalities: list[tuple[str, str, float]], months: list[str]
     ok = True
 
     if skipped and not args.rebuild:
-        _log("Note: these months will be skipped - their source file already failed to "
-             "process once and is not tried again (will be tried again with --rebuild):")
-        _log_municipalities(skipped, "")
+        logger.info("these months will be skipped - their source file already failed to "
+                    "process once and is not tried again (will be tried again with --rebuild):")
+        _log_municipalities(skipped, "", logging.INFO)
 
     if out_of_order and not args.rebuild:
         ok = False
-        _log("ERROR: the range reaches before the already processed state. Such snapshots")
-        _log("       cannot be added after the fact - building the history (SCD2) depends")
-        _log("       on the order, so ingest() would have to drop them.")
-        _log_municipalities(out_of_order, "")
-        _log("       Fix: set --start past the current state, or use --rebuild "
-             "(the history is built again from scratch).")
+        logger.error(
+            "the range reaches before the already processed state. Such snapshots cannot "
+            "be added after the fact - building the history (SCD2) depends on the order, "
+            "so ingest() would have to drop them."
+        )
+        _log_municipalities(out_of_order, "", logging.ERROR)
+        logger.error("Fix: set --start past the current state, or use --rebuild "
+                     "(the history is built again from scratch).")
 
     if gaps and not args.rebuild:
         ok = False
-        _log("ERROR: after this run a hole would remain in the series of months. An object")
-        _log("       that disappeared inside the hole gets its valid_to only from the first")
-        _log("       snapshot past it, so the history would be distorted. These months are")
-        _log("       on the server - the range just skipped over them.")
-        _log_municipalities(gaps, "missing ")
+        logger.error(
+            "after this run a hole would remain in the series of months. An object that "
+            "disappeared inside the hole gets its valid_to only from the first snapshot "
+            "past it, so the history would be distorted. These months are on the server - "
+            "the range just skipped over them."
+        )
+        _log_municipalities(gaps, "missing ", logging.ERROR)
         first_gap = min(m for hole in gaps.values() for m in hole)
-        _log(f"       Fix: --start {first_gap} (the earliest month missing anywhere above), "
-             f"or --rebuild.")
+        logger.error("Fix: --start %s (the earliest month missing anywhere above), or --rebuild.",
+                     first_gap)
 
     return ok
 
@@ -242,13 +253,15 @@ def _format_months(months: list[str], max_listed: int = 6) -> str:
     return f"{count}: {listing}"
 
 
-def _log_municipalities(problems: dict[str, list[str]], prefix: str, max_rows: int = 5) -> None:
-    """Print the first few problematic municipalities - a whole region would
+def _log_municipalities(
+    problems: dict[str, list[str]], prefix: str, level: int, max_rows: int = 5
+) -> None:
+    """Log the first few problematic municipalities - a whole region would
     drown the error message itself."""
     for where, months in list(problems.items())[:max_rows]:
-        _log(f"  {where}: {prefix}{_format_months(months)}")
+        logger.log(level, "  %s: %s%s", where, prefix, _format_months(months))
     if len(problems) > max_rows:
-        _log(f"  ... and {len(problems) - max_rows} more municipalities")
+        logger.log(level, "  ... and %d more municipalities", len(problems) - max_rows)
 
 
 def main() -> None:
@@ -269,9 +282,17 @@ def main() -> None:
                          help="last month, YYYYMM or YYYY-M (default: the last published month)")
     parser.add_argument("--name", default=None,
                          help="name of the combined export (default: after the region, resp. the municipality code)")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                         help="log at DEBUG level")
     parser.add_argument("--rebuild", action="store_true",
                          help="throw away the current state and build the history from scratch (needed when the range reaches before the already processed state)")
     args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)-7s %(message)s",
+        datefmt="%H:%M:%S",
+    )
 
     municipalities, default_name = _resolve_municipalities(args)
     out_name = args.name or default_name
@@ -288,16 +309,16 @@ def main() -> None:
     try:
         months = month_range(start=args.start, end=args.end, latest=latest)
     except ValueError as exc:
-        _log(f"ERROR: {exc}")
+        logger.error("%s", exc)
         sys.exit(2)
 
     if not months:
         if parse_month(args.start) > latest:
-            _log(f"Nothing to do: {parse_month(args.start)} is not published yet "
-                 f"(the last available one is {latest}).")
+            logger.info("Nothing to do: %s is not published yet (the last available one is %s).",
+                        parse_month(args.start), latest)
             sys.exit(0)
-        _log(f"ERROR: the given range lies entirely outside the available archive "
-             f"({ARCHIVE_START}-{latest}), there is nothing to download.")
+        logger.error("the given range lies entirely outside the available archive "
+                     "(%s-%s), there is nothing to download.", ARCHIVE_START, latest)
         sys.exit(2)
 
     _report_clamp(args, months, latest)
@@ -308,9 +329,11 @@ def main() -> None:
     municipality_count = _plural(len(municipalities), "municipality", "municipalities")
     where = f"municipality {municipalities[0][1]}" if len(municipalities) == 1 else (
         municipality_count if args.municipality else f"region '{args.region}' ({municipality_count})")
-    _log(f"{where}, {_format_months(months)}, "
-         f"{args.workers} concurrent threads, delay={args.delay}s/request"
-         + (", REBUILD (the state is built from scratch)" if args.rebuild else ""))
+    logger.info(
+        "%s, %s, %d concurrent threads, delay=%ss/request%s",
+        where, _format_months(months), args.workers, args.delay,
+        ", REBUILD (the state is built from scratch)" if args.rebuild else "",
+    )
 
     retry_from = latest if latest_known else months[0]
 
@@ -329,15 +352,17 @@ def main() -> None:
             try:
                 results.append(future.result())
             except Exception as exc:
-                _log(f"  [{name} {code}] FAILED: {exc}")
+                logger.error("[%s %s] FAILED: %s", name, code, exc, exc_info=True)
 
     elapsed = time.monotonic() - t0
-    _log(f"\nFinished in {elapsed / 60:.1f} min"
-         + (f" ({elapsed / len(municipalities):.1f} s/municipality on average)."
-            if len(municipalities) > 1 else "."))
+    logger.info(
+        "Finished in %.1f min%s", elapsed / 60,
+        f" ({elapsed / len(municipalities):.1f} s/municipality on average)."
+        if len(municipalities) > 1 else ".",
+    )
 
     if not results:
-        _log("No municipality was processed successfully, quitting.")
+        logger.error("No municipality was processed successfully, quitting.")
         sys.exit(1)
 
     # -- combined export ------------------------------------------------
@@ -345,7 +370,7 @@ def main() -> None:
               for r in results if len(r["hist"]) > 0]
 
     if not frames:
-        _log("No municipality has any data, the combined export is skipped.")
+        logger.warning("No municipality has any data, the combined export is skipped.")
         return
 
     combined = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), crs=frames[0].crs)
@@ -357,10 +382,13 @@ def main() -> None:
                            keep_cols=["code", "municipality_code", "municipality_name",
                                       "valid_from", "valid_to", "end_reason"])
 
-    _log(f"\nTotal: {len(combined)} history rows across "
-         f"{_plural(len(frames), 'municipality', 'municipalities')}, "
-         f"{combined['code'].nunique()} unique objects.")
-    _log(combined["end_reason"].value_counts(dropna=False).to_string())
+    logger.info(
+        "Total: %d history rows across %s, %d unique objects.",
+        len(combined), _plural(len(frames), "municipality", "municipalities"),
+        combined["code"].nunique(),
+    )
+    logger.info("end_reason counts:\n%s",
+                combined["end_reason"].value_counts(dropna=False).to_string())
 
 
 if __name__ == "__main__":

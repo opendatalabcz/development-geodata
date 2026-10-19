@@ -6,11 +6,14 @@ EPSG:4326 (for QGIS/geojson.io/Leaflet). The two are joined on `code`, in the
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import geopandas as gpd
 
 from ._util import flatten_for_output
+
+logger = logging.getLogger(__name__)
 
 GEOJSON_CRS = "EPSG:4326"
 
@@ -24,7 +27,7 @@ def write_csv(gdf: gpd.GeoDataFrame, out_path: str | Path) -> None:
     df = flatten_for_output(gdf)
     df = df.drop(columns=["geometry"], errors="ignore")
     df.to_csv(out_path, index=False, encoding="utf-8-sig")
-    print(f"Saved: {out_path}  ({len(df)} rows, {len(df.columns)} columns)")
+    logger.info("Saved: %s  (%d rows, %d columns)", out_path, len(df), len(df.columns))
 
 
 def write_geojson(
@@ -47,7 +50,7 @@ def write_geojson(
     if out_path.exists():
         out_path.unlink()
     slim.to_file(out_path, driver="GeoJSON")
-    print(f"Saved: {out_path}  ({len(slim)} objects, CRS {GEOJSON_CRS})")
+    logger.info("Saved: %s  (%d objects, CRS %s)", out_path, len(slim), GEOJSON_CRS)
 
 
 def write_csv_and_geojson(
