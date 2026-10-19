@@ -316,25 +316,22 @@ def main(args: argparse.Namespace) -> None:
 
     latest, latest_known = _resolve_latest_month(session)
 
-    try:
-        months = month_range(start=args.start, end=args.end, latest=latest)
-    except ValueError as exc:
-        logger.error("%s", exc)
-        sys.exit(2)
+    months = month_range(start=args.start, end=args.end, latest=latest)
 
     if not months:
         if parse_month(args.start) > latest:
             logger.info("Nothing to do: %s is not published yet (the last available one is %s).",
                         parse_month(args.start), latest)
-            sys.exit(0)
-        logger.error("the given range lies entirely outside the available archive "
-                     "(%s-%s), there is nothing to download.", ARCHIVE_START, latest)
-        sys.exit(2)
+            return
+        raise ValueError(
+            f"the given range lies entirely outside the available archive "
+            f"({ARCHIVE_START}-{latest}), there is nothing to download."
+        )
 
     _report_clamp(args, months, latest)
 
     if not _check_range(municipalities, months, args):
-        sys.exit(1)
+        raise RuntimeError("the range cannot be attached to the stored state (see above)")
 
     municipality_count = _plural(len(municipalities), "municipality", "municipalities")
     where = f"municipality {municipalities[0][1]}" if len(municipalities) == 1 else (
@@ -372,8 +369,7 @@ def main(args: argparse.Namespace) -> None:
     )
 
     if not results:
-        logger.error("No municipality was processed successfully, quitting.")
-        sys.exit(1)
+        raise RuntimeError("no municipality was processed successfully")
 
     # -- combined export ------------------------------------------------
     frames = [r["hist"].assign(municipality_code=r["municipality_code"], municipality_name=r["name"])
@@ -408,4 +404,11 @@ if __name__ == "__main__":
         format="%(asctime)s %(levelname)-7s %(message)s",
         datefmt="%H:%M:%S",
     )
-    main(cli_args)
+    try:
+        main(cli_args)
+    except ValueError as exc:
+        logger.error("%s", exc)
+        sys.exit(2)
+    except RuntimeError as exc:
+        logger.error("%s", exc)
+        sys.exit(1)
