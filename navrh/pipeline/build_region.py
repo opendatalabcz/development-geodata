@@ -125,33 +125,50 @@ def _process_municipality(
     }
 
 
-def _resolve_municipalities(args) -> list[tuple[str, str, float]]:
-    """Pick the municipalities to process from the parsed CLI arguments
-    (`--municipality` takes precedence over `--region`, `--limit` applies to a
-    region only). Each municipality is `(code, name, distance_from_centre)`;
-    codes given by hand get their name from the known regions (or the code
-    itself if unknown) and distance 0.0."""
-    if not args.municipality:
-        municipalities = REGIONS[args.region]
-        if args.limit:
-            municipalities = municipalities[: args.limit]
+def _resolve_municipalities(
+    municipality: str | None, region: str, limit: int | None
+) -> list[tuple[str, str, float]]:
+    """Pick the municipalities to process: the comma-separated RÚIAN codes in
+    `municipality` if given, otherwise the named `region` (cut to the first
+    `limit` municipalities). Each municipality is `(code, name,
+    distance_from_centre)`; codes given by hand get their name from the known
+    regions (or the code itself if unknown) and distance 0.0."""
+    if not municipality:
+        municipalities = REGIONS[region]
+        if limit:
+            municipalities = municipalities[:limit]
         return municipalities
 
-    names = {code: name for region in REGIONS.values() for code, name, _dist in region}
-    codes = [c.strip() for c in args.municipality.split(",") if c.strip()]
+    names = {code: name for reg in REGIONS.values() for code, name, _dist in reg}
+    codes = [c.strip() for c in municipality.split(",") if c.strip()]
     return [(code, names.get(code, code), 0.0) for code in codes]
 
 
-def _export_name(args, municipalities: list[tuple[str, str, float]]) -> str:
-    """Name of the combined export: `--name` if given, otherwise the region
+def _export_name(
+    name: str | None,
+    municipality: str | None,
+    region: str,
+    municipalities: list[tuple[str, str, float]],
+) -> str:
+    """Name of the combined export: `name` if given, otherwise the region
     name, the single municipality code, or `municipalities_<n>`."""
-    if args.name:
-        return args.name
-    if not args.municipality:
-        return args.region
+    if name:
+        return name
+    if not municipality:
+        return region
     if len(municipalities) == 1:
         return municipalities[0][0]
     return f"municipalities_{len(municipalities)}"
+
+
+def _scope_label(
+    municipality: str | None, region: str, municipalities: list[tuple[str, str, float]]
+) -> str:
+    """Short description of what is being processed, for the log."""
+    count = _plural(len(municipalities), "municipality", "municipalities")
+    if len(municipalities) == 1:
+        return f"municipality {municipalities[0][1]}"
+    return count if municipality else f"region '{region}' ({count})"
 
 
 def _resolve_latest_month(session: requests.Session) -> tuple[str, bool]:
@@ -171,17 +188,17 @@ def _resolve_latest_month(session: requests.Session) -> tuple[str, bool]:
         return fallback, False
 
 
-def _report_clamp(args, months: list[str], latest: str) -> None:
+def _report_clamp(start: str, end: str | None, months: list[str], latest: str) -> None:
     """Report whether the given range had to be trimmed to the available
     archive."""
-    requested_start = parse_month(args.start)
+    requested_start = parse_month(start)
     if requested_start < months[0]:
         logger.info(
             "the start %s lies before the start of the ČÚZK archive (%s) - range trimmed to %s.",
             requested_start, ARCHIVE_START, months[0],
         )
-    if args.end is not None:
-        requested_end = parse_month(args.end)
+    if end is not None:
+        requested_end = parse_month(end)
         if requested_end > months[-1]:
             logger.info(
                 "the end %s is not published yet (the last one is %s) - range trimmed to %s.",
@@ -189,7 +206,7 @@ def _report_clamp(args, months: list[str], latest: str) -> None:
             )
 
 
-def _check_range(municipalities: list[tuple[str, str, float]], months: list[str], args) -> bool:
+def _check_range(municipalities: list[tuple[str, str, float]], months: list[str], rebuild: bool) -> bool:
     """Verify that the given range can be attached to the current state of every
     municipality. Returns True when the run should go on. Checked up front from
     the stored progress, before anything starts downloading."""
@@ -211,12 +228,12 @@ def _check_range(municipalities: list[tuple[str, str, float]], months: list[str]
 
     ok = True
 
-    if skipped and not args.rebuild:
+    if skipped and not rebuild:
         logger.info("these months will be skipped - their source file already failed to "
                     "process once and is not tried again (will be tried again with --rebuild):")
         _log_municipalities(skipped, "", logging.INFO)
 
-    if out_of_order and not args.rebuild:
+    if out_of_order and not rebuild:
         ok = False
         logger.error(
             "the range reaches before the already processed state. Such snapshots cannot "
@@ -227,7 +244,7 @@ def _check_range(municipalities: list[tuple[str, str, float]], months: list[str]
         logger.error("Fix: set --start past the current state, or use --rebuild "
                      "(the history is built again from scratch).")
 
-    if gaps and not args.rebuild:
+    if gaps and not rebuild:
         ok = False
         logger.error(
             "after this run a hole would remain in the series of months. An object that "
@@ -302,44 +319,50 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(args: argparse.Namespace) -> None:
-    """Run the pipeline with already parsed arguments (see `build_parser`)."""
-    municipalities = _resolve_municipalities(args)
-    out_name = _export_name(args, municipalities)
-
+def main(
+    municipalities: list[tuple[str, str, float]],
+    export_name: str,
+    scope: str,
+    start: str = ARCHIVE_START,
+    end: str | None = None,
+    workers: int = WORKERS_DEFAULT,
+    delay_s: float = DELAY_S_DEFAULT,
+    rebuild: bool = False,
+) -> None:
+    """Download and process the months `start`-`end` (default: the whole
+    archive up to the last published month) for the given municipalities and
+    write the combined export `<export_name>_history`. `scope` only describes
+    the run in the log."""
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(
-        pool_connections=max(args.workers, 10), pool_maxsize=max(args.workers, 10)
+        pool_connections=max(workers, 10), pool_maxsize=max(workers, 10)
     )
     session.mount("https://", adapter)
     session.mount("http://", adapter)
 
     latest, latest_known = _resolve_latest_month(session)
 
-    months = month_range(start=args.start, end=args.end, latest=latest)
+    months = month_range(start=start, end=end, latest=latest)
 
     if not months:
-        if parse_month(args.start) > latest:
+        if parse_month(start) > latest:
             logger.info("Nothing to do: %s is not published yet (the last available one is %s).",
-                        parse_month(args.start), latest)
+                        parse_month(start), latest)
             return
         raise ValueError(
             f"the given range lies entirely outside the available archive "
             f"({ARCHIVE_START}-{latest}), there is nothing to download."
         )
 
-    _report_clamp(args, months, latest)
+    _report_clamp(start, end, months, latest)
 
-    if not _check_range(municipalities, months, args):
+    if not _check_range(municipalities, months, rebuild):
         raise RuntimeError("the range cannot be attached to the stored state (see above)")
 
-    municipality_count = _plural(len(municipalities), "municipality", "municipalities")
-    where = f"municipality {municipalities[0][1]}" if len(municipalities) == 1 else (
-        municipality_count if args.municipality else f"region '{args.region}' ({municipality_count})")
     logger.info(
         "%s, %s, %d concurrent threads, delay=%ss/request%s",
-        where, _format_months(months), args.workers, args.delay,
-        ", REBUILD (the state is built from scratch)" if args.rebuild else "",
+        scope, _format_months(months), workers, delay_s,
+        ", REBUILD (the state is built from scratch)" if rebuild else "",
     )
 
     retry_from = latest if latest_known else months[0]
@@ -348,10 +371,10 @@ def main(args: argparse.Namespace) -> None:
 
     t0 = time.monotonic()
     results = []
-    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+    with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {
             pool.submit(_process_municipality, code, name, months, session, listing_cache,
-                        args.delay, retry_from, args.rebuild): (code, name)
+                        delay_s, retry_from, rebuild): (code, name)
             for code, name, _dist in municipalities
         }
         for future in as_completed(futures):
@@ -382,7 +405,7 @@ def main(args: argparse.Namespace) -> None:
     combined = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), crs=frames[0].crs)
     combined = combined.sort_values(["municipality_code", "code", "valid_from"]).reset_index(drop=True)
 
-    name = f"{out_name}_history"
+    name = f"{export_name}_history"
     write_geoparquet(combined, OUT_DIR / f"{name}.parquet")
     write_csv_and_geojson(combined, OUT_DIR, name,
                            keep_cols=["code", "municipality_code", "municipality_name",
@@ -405,7 +428,17 @@ if __name__ == "__main__":
         datefmt="%H:%M:%S",
     )
     try:
-        main(cli_args)
+        selected = _resolve_municipalities(cli_args.municipality, cli_args.region, cli_args.limit)
+        main(
+            selected,
+            export_name=_export_name(cli_args.name, cli_args.municipality, cli_args.region, selected),
+            scope=_scope_label(cli_args.municipality, cli_args.region, selected),
+            start=cli_args.start,
+            end=cli_args.end,
+            workers=cli_args.workers,
+            delay_s=cli_args.delay,
+            rebuild=cli_args.rebuild,
+        )
     except ValueError as exc:
         logger.error("%s", exc)
         sys.exit(2)
