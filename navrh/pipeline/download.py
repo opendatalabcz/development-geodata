@@ -11,7 +11,6 @@ import gzip
 import io
 import re
 import threading
-import time
 import zipfile
 from dataclasses import dataclass
 from datetime import date
@@ -230,25 +229,3 @@ def month_range(
             m = 1
             y += 1
     return months
-
-
-def fetch_municipality_history_stream(
-    municipality_code: str,
-    months: list[str] | None = None,
-    delay_s: float = 1.0,
-    session: requests.Session | None = None,
-    listing_cache: MonthListingCache | None = None,
-):
-    """Generator: downloads and parses the snapshots of one municipality month
-    by month, `delay_s` apart, and yields them one after another. Nothing is
-    written to disk - the caller keeps the state itself."""
-    session = session or requests.Session()
-    months = months or month_range(latest=latest_available_month(session=session))
-
-    for i, yyyymm in enumerate(months):
-        result = fetch_municipality_snapshot(
-            yyyymm, municipality_code, session=session, listing_cache=listing_cache
-        )
-        yield result
-        if i < len(months) - 1:
-            time.sleep(delay_s)
