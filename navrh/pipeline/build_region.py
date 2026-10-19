@@ -95,9 +95,8 @@ def _process_municipality(
     state.save(state_path)
     hist = state.to_geodataframe()
     logger.info(
-        "done %s (%s): %s processed (ok=%d, missing=%d, errors=%d), %d history rows",
-        name, municipality_code, _plural(len(todo), "month"),
-        ok_count, missing_count, error_count, len(hist),
+        "done %s (%s): months=%d ok=%d missing=%d errors=%d, history rows=%d",
+        name, municipality_code, len(todo), ok_count, missing_count, error_count, len(hist),
     )
     skipped_in_range = state.skipped_in(months)
     series_start = min(state.processed_months) if state.processed_months else None
@@ -105,15 +104,15 @@ def _process_municipality(
     before = [m for m in skipped_in_range if m not in inside]
     if inside:
         logger.warning(
-            "%s (%s): a hole remains in the series - %s (the source file could not be "
-            "processed; it can only be filled in via --rebuild)",
-            name, municipality_code, _format_months(inside),
+            "%s (%s): hole in the series, %d months %s..%s (source file could not be "
+            "processed; only --rebuild can fill it)",
+            name, municipality_code, len(inside), inside[0], inside[-1],
         )
     if before:
         logger.info(
-            "%s (%s): %s missing before the start of the series (the municipality had "
-            "no data in RÚIAN back then, or the file could not be processed) - not tried again",
-            name, municipality_code, _format_months(before),
+            "%s (%s): %d months %s..%s missing before the start of the series "
+            "(no data in RÚIAN back then, or the file could not be processed) - not retried",
+            name, municipality_code, len(before), before[0], before[-1],
         )
     return {
         "municipality_code": municipality_code,
@@ -159,16 +158,6 @@ def _export_name(
     if len(municipalities) == 1:
         return municipalities[0][0]
     return f"municipalities_{len(municipalities)}"
-
-
-def _scope_label(
-    municipality: str | None, region: str, municipalities: list[tuple[str, str, float]]
-) -> str:
-    """Short description of what is being processed, for the log."""
-    count = _plural(len(municipalities), "municipality", "municipalities")
-    if len(municipalities) == 1:
-        return f"municipality {municipalities[0][1]}"
-    return count if municipality else f"region '{region}' ({count})"
 
 
 def _resolve_latest_month(session: requests.Session) -> tuple[str, bool]:
@@ -231,7 +220,7 @@ def _check_range(municipalities: list[tuple[str, str, float]], months: list[str]
     if skipped and not rebuild:
         logger.info("these months will be skipped - their source file already failed to "
                     "process once and is not tried again (will be tried again with --rebuild):")
-        _log_municipalities(skipped, "", logging.INFO)
+        _log_municipalities(skipped, logging.INFO)
 
     if out_of_order and not rebuild:
         ok = False
@@ -240,7 +229,7 @@ def _check_range(municipalities: list[tuple[str, str, float]], months: list[str]
             "be added after the fact - building the history (SCD2) depends on the order, "
             "so ingest() would have to drop them."
         )
-        _log_municipalities(out_of_order, "", logging.ERROR)
+        _log_municipalities(out_of_order, logging.ERROR)
         logger.error("Fix: set --start past the current state, or use --rebuild "
                      "(the history is built again from scratch).")
 
@@ -252,7 +241,7 @@ def _check_range(municipalities: list[tuple[str, str, float]], months: list[str]
             "past it, so the history would be distorted. These months are on the server - "
             "the range just skipped over them."
         )
-        _log_municipalities(gaps, "missing ", logging.ERROR)
+        _log_municipalities(gaps, logging.ERROR)
         first_gap = min(m for hole in gaps.values() for m in hole)
         logger.error("Fix: --start %s (the earliest month missing anywhere above), or --rebuild.",
                      first_gap)
@@ -260,35 +249,11 @@ def _check_range(municipalities: list[tuple[str, str, float]], months: list[str]
     return ok
 
 
-def _plural(n: int, singular: str, plural: str | None = None) -> str:
-    """Count with a noun in the right number: 1 month / 5 months."""
-    if n == 1:
-        return f"{n} {singular}"
-    return f"{n} {plural or singular + 's'}"
-
-
-def _format_months(months: list[str], max_listed: int = 6) -> str:
-    """The number of months and which ones they are ('1 month: 201605',
-    '12 months: 202501-202512'). A contiguous series is shortened to `from-to`,
-    a non-contiguous one is listed month by month."""
-    count = _plural(len(months), "month")
-    if len(months) == 1:
-        return f"{count}: {months[0]}"
-    if months == month_range(months[0], months[-1], clamp=False):
-        return f"{count}: {months[0]}-{months[-1]}"
-    listing = ", ".join(months[:max_listed])
-    if len(months) > max_listed:
-        listing += ", ..."
-    return f"{count}: {listing}"
-
-
-def _log_municipalities(
-    problems: dict[str, list[str]], prefix: str, level: int, max_rows: int = 5
-) -> None:
+def _log_municipalities(problems: dict[str, list[str]], level: int, max_rows: int = 5) -> None:
     """Log the first few problematic municipalities - a whole region would
     drown the error message itself."""
     for where, months in list(problems.items())[:max_rows]:
-        logger.log(level, "  %s: %s%s", where, prefix, _format_months(months))
+        logger.log(level, "  %s: %d months %s..%s", where, len(months), months[0], months[-1])
     if len(problems) > max_rows:
         logger.log(level, "  ... and %d more municipalities", len(problems) - max_rows)
 
@@ -322,7 +287,6 @@ def build_parser() -> argparse.ArgumentParser:
 def main(
     municipalities: list[tuple[str, str, float]],
     export_name: str,
-    scope: str,
     start: str = ARCHIVE_START,
     end: str | None = None,
     workers: int = WORKERS_DEFAULT,
@@ -331,8 +295,7 @@ def main(
 ) -> None:
     """Download and process the months `start`-`end` (default: the whole
     archive up to the last published month) for the given municipalities and
-    write the combined export `<export_name>_history`. `scope` only describes
-    the run in the log."""
+    write the combined export `<export_name>_history`."""
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(
         pool_connections=max(workers, 10), pool_maxsize=max(workers, 10)
@@ -360,9 +323,9 @@ def main(
         raise RuntimeError("the range cannot be attached to the stored state (see above)")
 
     logger.info(
-        "%s, %s, %d concurrent threads, delay=%ss/request%s",
-        scope, _format_months(months), workers, delay_s,
-        ", REBUILD (the state is built from scratch)" if rebuild else "",
+        "export=%s municipalities=%d months=%s..%s (%d) workers=%d delay=%ss rebuild=%s",
+        export_name, len(municipalities), months[0], months[-1], len(months),
+        workers, delay_s, rebuild,
     )
 
     retry_from = latest if latest_known else months[0]
@@ -385,11 +348,7 @@ def main(
                 logger.error("[%s %s] FAILED: %s", name, code, exc, exc_info=True)
 
     elapsed = time.monotonic() - t0
-    logger.info(
-        "Finished in %.1f min%s", elapsed / 60,
-        f" ({elapsed / len(municipalities):.1f} s/municipality on average)."
-        if len(municipalities) > 1 else ".",
-    )
+    logger.info("Finished in %.1f min", elapsed / 60)
 
     if not results:
         raise RuntimeError("no municipality was processed successfully")
@@ -412,9 +371,8 @@ def main(
                                       "valid_from", "valid_to", "end_reason"])
 
     logger.info(
-        "Total: %d history rows across %s, %d unique objects.",
-        len(combined), _plural(len(frames), "municipality", "municipalities"),
-        combined["code"].nunique(),
+        "Total: history rows=%d municipalities=%d unique objects=%d",
+        len(combined), len(frames), combined["code"].nunique(),
     )
     logger.info("end_reason counts:\n%s",
                 combined["end_reason"].value_counts(dropna=False).to_string())
@@ -432,7 +390,6 @@ if __name__ == "__main__":
         main(
             selected,
             export_name=_export_name(cli_args.name, cli_args.municipality, cli_args.region, selected),
-            scope=_scope_label(cli_args.municipality, cli_args.region, selected),
             start=cli_args.start,
             end=cli_args.end,
             workers=cli_args.workers,
