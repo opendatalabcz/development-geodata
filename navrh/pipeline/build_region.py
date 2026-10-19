@@ -126,9 +126,13 @@ def _process_municipality(
 
 
 def _resolve_municipalities(args) -> tuple[list[tuple[str, str, float]], str]:
-    """Pick the list of municipalities to process out of the arguments, plus the
-    name of the combined export. `--municipality` takes precedence over
-    `--region`; an unknown code keeps the code itself as its name."""
+    """Pick the municipalities to process from the parsed CLI arguments
+    (`--municipality` takes precedence over `--region`, `--limit` applies to a
+    region only). Returns `(municipalities, export_name)`, where each
+    municipality is `(code, name, distance_from_centre)`; codes given by hand get
+    their name from the known regions (or the code itself if unknown) and
+    distance 0.0. `export_name` is the region name, the single code, or
+    `municipalities_<n>`."""
     if not args.municipality:
         municipalities = REGIONS[args.region]
         if args.limit:
