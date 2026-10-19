@@ -104,15 +104,15 @@ def _process_municipality(
     before = [m for m in skipped_in_range if m not in inside]
     if inside:
         logger.warning(
-            "%s (%s): hole in the series, %d months %s..%s (source file could not be "
+            "%s (%s): hole in the series, %d months: %s (source file could not be "
             "processed; only --rebuild can fill it)",
-            name, municipality_code, len(inside), inside[0], inside[-1],
+            name, municipality_code, len(inside), ", ".join(inside),
         )
     if before:
         logger.info(
-            "%s (%s): %d months %s..%s missing before the start of the series "
-            "(no data in RÚIAN back then, or the file could not be processed) - not retried",
-            name, municipality_code, len(before), before[0], before[-1],
+            "%s (%s): %d months missing before the start of the series "
+            "(no data in RÚIAN back then, or the file could not be processed) - not retried: %s",
+            name, municipality_code, len(before), ", ".join(before),
         )
     return {
         "municipality_code": municipality_code,
@@ -253,7 +253,7 @@ def _log_municipalities(problems: dict[str, list[str]], level: int, max_rows: in
     """Log the first few problematic municipalities - a whole region would
     drown the error message itself."""
     for where, months in list(problems.items())[:max_rows]:
-        logger.log(level, "  %s: %d months %s..%s", where, len(months), months[0], months[-1])
+        logger.log(level, "  %s: %d months: %s", where, len(months), ", ".join(months))
     if len(problems) > max_rows:
         logger.log(level, "  ... and %d more municipalities", len(problems) - max_rows)
 
@@ -348,7 +348,8 @@ def main(
                 logger.error("[%s %s] FAILED: %s", name, code, exc, exc_info=True)
 
     elapsed = time.monotonic() - t0
-    logger.info("Finished in %.1f min", elapsed / 60)
+    logger.info("Finished in %.1f min (%.1f s/municipality on average)",
+                elapsed / 60, elapsed / len(municipalities))
 
     if not results:
         raise RuntimeError("no municipality was processed successfully")
