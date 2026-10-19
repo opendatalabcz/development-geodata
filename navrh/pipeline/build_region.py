@@ -125,25 +125,33 @@ def _process_municipality(
     }
 
 
-def _resolve_municipalities(args) -> tuple[list[tuple[str, str, float]], str]:
+def _resolve_municipalities(args) -> list[tuple[str, str, float]]:
     """Pick the municipalities to process from the parsed CLI arguments
     (`--municipality` takes precedence over `--region`, `--limit` applies to a
-    region only). Returns `(municipalities, export_name)`, where each
-    municipality is `(code, name, distance_from_centre)`; codes given by hand get
-    their name from the known regions (or the code itself if unknown) and
-    distance 0.0. `export_name` is the region name, the single code, or
-    `municipalities_<n>`."""
+    region only). Each municipality is `(code, name, distance_from_centre)`;
+    codes given by hand get their name from the known regions (or the code
+    itself if unknown) and distance 0.0."""
     if not args.municipality:
         municipalities = REGIONS[args.region]
         if args.limit:
             municipalities = municipalities[: args.limit]
-        return municipalities, args.region
+        return municipalities
 
     names = {code: name for region in REGIONS.values() for code, name, _dist in region}
     codes = [c.strip() for c in args.municipality.split(",") if c.strip()]
-    municipalities = [(code, names.get(code, code), 0.0) for code in codes]
-    name = codes[0] if len(codes) == 1 else f"municipalities_{len(codes)}"
-    return municipalities, name
+    return [(code, names.get(code, code), 0.0) for code in codes]
+
+
+def _export_name(args, municipalities: list[tuple[str, str, float]]) -> str:
+    """Name of the combined export: `--name` if given, otherwise the region
+    name, the single municipality code, or `municipalities_<n>`."""
+    if args.name:
+        return args.name
+    if not args.municipality:
+        return args.region
+    if len(municipalities) == 1:
+        return municipalities[0][0]
+    return f"municipalities_{len(municipalities)}"
 
 
 def _resolve_latest_month(session: requests.Session) -> tuple[str, bool]:
@@ -296,8 +304,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(args: argparse.Namespace) -> None:
     """Run the pipeline with already parsed arguments (see `build_parser`)."""
-    municipalities, default_name = _resolve_municipalities(args)
-    out_name = args.name or default_name
+    municipalities = _resolve_municipalities(args)
+    out_name = _export_name(args, municipalities)
 
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(
