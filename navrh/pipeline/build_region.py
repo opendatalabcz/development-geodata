@@ -268,7 +268,8 @@ def _log_municipalities(
         logger.log(level, "  ... and %d more municipalities", len(problems) - max_rows)
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """The command-line parser of the pipeline run."""
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--region", default="brno_area", choices=sorted(REGIONS),
                          help="which named region to process (see regions.py); ignored with --municipality")
@@ -290,14 +291,11 @@ def main() -> None:
                          help="log at DEBUG level")
     parser.add_argument("--rebuild", action="store_true",
                          help="throw away the current state and build the history from scratch (needed when the range reaches before the already processed state)")
-    args = parser.parse_args()
+    return parser
 
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s %(levelname)-7s %(message)s",
-        datefmt="%H:%M:%S",
-    )
 
+def main(args: argparse.Namespace) -> None:
+    """Run the pipeline with already parsed arguments (see `build_parser`)."""
     municipalities, default_name = _resolve_municipalities(args)
     out_name = args.name or default_name
 
@@ -396,4 +394,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    cli_args = build_parser().parse_args()
+    logging.basicConfig(
+        level=logging.DEBUG if cli_args.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)-7s %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    main(cli_args)
