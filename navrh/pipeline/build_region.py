@@ -2,7 +2,7 @@
 RÚIAN snapshots (OB_UKSH) for one municipality, a list of municipalities or a
 whole named region, and builds the versioned history of building objects (SCD2)
 out of them. The month range is given via `--start` / `--end`, municipalities
-are processed concurrently, and a single combined GeoParquet export
+are processed in parallel worker processes, and a single combined GeoParquet export
 is produced at the end.
 
 Usage (from the repository root):
@@ -18,7 +18,7 @@ import argparse
 import logging
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import geopandas as gpd
@@ -38,6 +38,7 @@ from .export_parquet import write_geoparquet
 from .export_tabular import write_csv_and_geojson
 from .history import HistoryState
 from .regions import REGIONS
+from .vfr_parser import coerce_dtypes
 
 DELAY_S_DEFAULT = 0.3
 WORKERS_DEFAULT = 8
@@ -47,6 +48,42 @@ DATA_DIR = REPO_ROOT / "navrh" / "data" / "history"
 OUT_DIR = REPO_ROOT / "navrh" / "output"
 
 logger = logging.getLogger(__name__)
+
+# set up once per worker process by _init_worker: a requests.Session and the
+# listing cache cannot be shared between processes
+_worker_session: requests.Session | None = None
+_worker_listing_cache: MonthListingCache | None = None
+
+
+def _configure_logging(verbose: bool) -> None:
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s %(levelname)-7s %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+
+def _init_worker(verbose: bool) -> None:
+    """Initializer of every worker process. A fresh (spawned) process does not
+    inherit the logging setup, so it is configured here too."""
+    global _worker_session, _worker_listing_cache
+    _configure_logging(verbose)
+    _worker_session = requests.Session()
+    _worker_listing_cache = MonthListingCache()
+
+
+def _process_in_worker(
+    municipality_code: str,
+    name: str,
+    months: list[str],
+    delay_s: float,
+    retry_from: str,
+    rebuild: bool,
+) -> dict:
+    return _process_municipality(
+        municipality_code, name, months, _worker_session, _worker_listing_cache,
+        delay_s, retry_from, rebuild,
+    )
 
 
 def _process_municipality(
@@ -60,8 +97,9 @@ def _process_municipality(
     rebuild: bool = False,
 ) -> dict:
     """Process the given month range of one municipality, sequentially month by
-    month, and return its history plus a per-month summary. Runs in a worker
-    thread - the concurrency is across municipalities, not months."""
+    month, and return a per-month summary; the history itself is left in the
+    municipality's state file. Runs in a worker process - the concurrency is
+    across municipalities, not months."""
     state_path = DATA_DIR / f"{municipality_code}.parquet"
     state = HistoryState() if rebuild else HistoryState.load(state_path)
     already_done = set(state.processed_months)
@@ -93,10 +131,9 @@ def _process_municipality(
             time.sleep(delay_s)
 
     state.save(state_path)
-    hist = state.to_geodataframe()
     logger.info(
         "done %s (%s): months=%d ok=%d missing=%d errors=%d, history rows=%d",
-        name, municipality_code, len(todo), ok_count, missing_count, error_count, len(hist),
+        name, municipality_code, len(todo), ok_count, missing_count, error_count, len(state.rows),
     )
     skipped_in_range = state.skipped_in(months)
     series_start = min(state.processed_months) if state.processed_months else None
@@ -117,7 +154,6 @@ def _process_municipality(
     return {
         "municipality_code": municipality_code,
         "name": name,
-        "hist": hist,
         "ok": ok_count,
         "missing": missing_count,
         "errors": error_count,
@@ -268,7 +304,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int, default=None,
                          help="process only the first N municipalities of the region (they are ordered by distance from the centre) - for a quick test")
     parser.add_argument("--workers", type=int, default=WORKERS_DEFAULT,
-                         help=f"how many municipalities to download concurrently (default {WORKERS_DEFAULT})")
+                         help=f"how many municipalities to process in parallel, one worker process each (default {WORKERS_DEFAULT})")
     parser.add_argument("--delay", type=float, default=DELAY_S_DEFAULT,
                          help=f"pause between requests within one municipality, in seconds (default {DELAY_S_DEFAULT})")
     parser.add_argument("--start", default=ARCHIVE_START,
@@ -292,18 +328,12 @@ def main(
     workers: int = WORKERS_DEFAULT,
     delay_s: float = DELAY_S_DEFAULT,
     rebuild: bool = False,
+    verbose: bool = False,
 ) -> None:
     """Download and process the months `start`-`end` (default: the whole
     archive up to the last published month) for the given municipalities and
     write the combined export `<export_name>_history`."""
-    session = requests.Session()
-    adapter = requests.adapters.HTTPAdapter(
-        pool_connections=max(workers, 10), pool_maxsize=max(workers, 10)
-    )
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
-
-    latest, latest_known = _resolve_latest_month(session)
+    latest, latest_known = _resolve_latest_month(requests.Session())
 
     months = month_range(start=start, end=end, latest=latest)
 
@@ -330,14 +360,11 @@ def main(
 
     retry_from = latest if latest_known else months[0]
 
-    listing_cache = MonthListingCache()
-
     t0 = time.monotonic()
     results = []
-    with ThreadPoolExecutor(max_workers=workers) as pool:
+    with ProcessPoolExecutor(max_workers=workers, initializer=_init_worker, initargs=(verbose,)) as pool:
         futures = {
-            pool.submit(_process_municipality, code, name, months, session, listing_cache,
-                        delay_s, retry_from, rebuild): (code, name)
+            pool.submit(_process_in_worker, code, name, months, delay_s, retry_from, rebuild): (code, name)
             for code, name, _dist in municipalities
         }
         for future in as_completed(futures):
@@ -355,8 +382,11 @@ def main(
         raise RuntimeError("no municipality was processed successfully")
 
     # -- combined export ------------------------------------------------
-    frames = [r["hist"].assign(municipality_code=r["municipality_code"], municipality_name=r["name"])
-              for r in results if len(r["hist"]) > 0]
+    frames = []
+    for r in results:
+        hist = coerce_dtypes(gpd.read_parquet(DATA_DIR / f"{r['municipality_code']}.parquet"))
+        if len(hist) > 0:
+            frames.append(hist.assign(municipality_code=r["municipality_code"], municipality_name=r["name"]))
 
     if not frames:
         logger.warning("No municipality has any data, the combined export is skipped.")
@@ -381,11 +411,7 @@ def main(
 
 if __name__ == "__main__":
     cli_args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if cli_args.verbose else logging.INFO,
-        format="%(asctime)s %(levelname)-7s %(message)s",
-        datefmt="%H:%M:%S",
-    )
+    _configure_logging(cli_args.verbose)
     try:
         selected = _resolve_municipalities(cli_args.municipality, cli_args.region, cli_args.limit)
         main(
@@ -396,6 +422,7 @@ if __name__ == "__main__":
             workers=cli_args.workers,
             delay_s=cli_args.delay,
             rebuild=cli_args.rebuild,
+            verbose=cli_args.verbose,
         )
     except ValueError as exc:
         logger.error("%s", exc)
