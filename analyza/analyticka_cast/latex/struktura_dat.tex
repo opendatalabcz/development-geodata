@@ -1,0 +1,52 @@
+% Vyžaduje balíčky: graphicx. Obrázky jsou v analyza/analyticka_cast/obrazky/,
+% případně nastavit \graphicspath{{analyza/analyticka_cast/obrazky/}}.
+\subsection{Struktura historie}
+
+Datová sada není prostým výpisem stavu registru, ale verzovanou historií:
+jeden řádek odpovídá jedné verzi stavebního objektu s obdobím platnosti
+(\texttt{valid\_from}, \texttt{valid\_to}). Platnost verze končí buď změnou
+některého atributu, kdy ji nahradí nová verze téhož objektu, nebo zánikem
+objektu. Aktuální stav objektu představuje verze bez data konce platnosti.
+Z 278\,171 verzí tak 102\,220 odpovídá aktuálně platným objektům.
+
+Většina objektů má v historii jen několik verzí (obrázek~\ref{fig:verze}).
+Jedinou verzi, tedy objekt od začátku sledovaného období beze změny, má
+29\,\% objektů, dvě verze 35\,\% a tři verze 23\,\%. Šest a více verzí má jen
+asi 1\,\% objektů.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{02_pocet_verzi_na_objekt}
+\caption{Počet verzí připadající na jeden stavební objekt}
+\label{fig:verze}
+\end{figure}
+
+Události v historii se v čase rozkládají nerovnoměrně
+(obrázek~\ref{fig:udalosti}). První snapshot z 09/2015 představuje výchozí
+stav, proto se do časové řady nezapočítává. Nové objekty přibývají stabilně,
+zhruba 60 až 70 měsíčně (celkem 8\,935 po výchozím stavu). Změny atributů
+a zánik objektů jsou naopak soustředěny do několika hromadných aktualizací
+registru. Nejvýraznější je 01/2024, kdy se změnilo 43\,521 verzí, a 02/2024
+s 18\,041 změnami; dále 07/2022 (11\,418) a 01/2016 (4\,952). Zaniklo
+celkem 22\,347 objektů, nejvíce v 04/2017 (2\,351) a 02/2023 (2\,306).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{03_udalosti_v_case}
+\caption{Změny atributů, nové a zaniklé objekty podle měsíců}
+\label{fig:udalosti}
+\end{figure}
+
+Počet platných objektů v čase (obrázek~\ref{fig:platne}) klesá ze 115\,632
+v 09/2015 na 102\,220 v 08/2026, protože zaniklých objektů je výrazně více
+než nově vzniklých. Pokles probíhá po skocích, zejména v letech 2016--2017
+a 2022--2023. To odpovídá spíše hromadnému čištění registru než skutečnému
+úbytku zástavby, a proto je při interpretaci časových řad nutné odlišovat
+změny reality od změn v evidenci.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.9\textwidth]{04_pocet_platnych_objektu}
+\caption{Vývoj počtu platných stavebních objektů}
+\label{fig:platne}
+\end{figure}

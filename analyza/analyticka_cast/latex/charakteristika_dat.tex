@@ -1,0 +1,63 @@
+\section{Charakteristika dat}
+
+Analyzovaná data pocházejí z Registru územní identifikace, adres a nemovitostí
+(RÚIAN), konkrétně z výměnného formátu VFR, ve kterém Český úřad zeměměřický
+a katastrální zveřejňuje měsíční snapshoty stavebních objektů po obcích
+(\texttt{OB\_UKSH}). Z těchto snapshotů byla sestavena verzovaná historie:
+každá změna atributů objektu založí novou verzi s platností od--do a zánik
+objektu uzavře platnost poslední verze. Před analýzou byla data vyčištěna.
+Zkoumané území tvoří město Brno a 29 okolních obcí, období pokrývá
+09/2015 až 08/2026 (tabulka~\ref{tab:zakladni}).
+
+\begin{table}[htbp]
+\centering
+\caption{Základní charakteristiky datové sady}
+\label{tab:zakladni}
+\begin{tabular}{l|r}
+Charakteristika & Hodnota \tabularnewline \hline
+Období snapshotů & 09/2015 -- 08/2026 \tabularnewline \hline
+Počet měsíčních snapshotů & 132 \tabularnewline \hline
+Počet obcí & 30 \tabularnewline \hline
+Počet verzí záznamů & 278\,171 \tabularnewline \hline
+Počet unikátních stavebních objektů & 124\,567 \tabularnewline \hline
+\quad z toho aktuálně platných & 102\,220 \tabularnewline \hline
+\quad z toho zaniklých během období & 22\,347 \tabularnewline \hline
+Podíl Brna na aktuálních objektech & 72\,\% \tabularnewline \hline
+Medián počtu verzí na objekt & 2 \tabularnewline
+\end{tabular}
+\end{table}
+
+Atributy objektu jsou převážně kódy z číselníků RÚIAN (typ objektu, způsob
+využití, druh konstrukce, způsob vytápění, připojení na sítě, výtah) a dále
+číselné hodnoty (počet podlaží a bytů, zastavěná plocha) a datum dokončení.
+Úplnost atributů je velmi různá: typ objektu a způsob využití jsou vyplněné
+téměř vždy, ostatní atributy u přibližně dvou třetin aktuálních objektů
+(tabulka~\ref{tab:atributy}). Na tuto neúplnost je třeba brát ohled
+u všech dále uvedených vizualizací.
+
+\begin{table}[htbp]
+\centering
+\caption{Použité atributy a jejich úplnost u aktuálních objektů}
+\label{tab:atributy}
+\begin{tabular}{l|r}
+Atribut & Vyplněno [\%] \tabularnewline \hline
+Typ stavebního objektu & 100,0 \tabularnewline \hline
+Způsob využití & 99,5 \tabularnewline \hline
+Počet bytů & 83,1 \tabularnewline \hline
+Zastavěná plocha [m$^2$] & 81,5 \tabularnewline \hline
+Vybavení výtahem & 67,3 \tabularnewline \hline
+Počet podlaží & 66,3 \tabularnewline \hline
+Připojení na vodovod & 66,3 \tabularnewline \hline
+Připojení na plyn & 66,0 \tabularnewline \hline
+Způsob vytápění & 65,8 \tabularnewline \hline
+Připojení na kanalizaci & 65,7 \tabularnewline \hline
+Druh konstrukce & 65,6 \tabularnewline \hline
+Datum dokončení & 63,2 \tabularnewline
+\end{tabular}
+\end{table}
+
+Ve zdrojových datech existují dvě známé nedokonalosti. Snapshot Brna za
+05/2016 je na serveru poškozený, takže v historii Brna je mezi 04/2016
+a 06/2016 mezera. Navíc chybí celé snapshoty za 12/2018, 03/2019, 03/2021
+a 06/2021; změny z těchto měsíců se v historii projeví až v následujícím
+měsíci.

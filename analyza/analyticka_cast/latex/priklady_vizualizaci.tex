@@ -1,0 +1,100 @@
+% Vyžaduje balíčky: graphicx, float. Obrázky: analyza/analyticka_cast/obrazky/
+% (\graphicspath{{analyza/analyticka_cast/obrazky/}}).
+\subsection{Příklady navržených vizualizací}
+
+Následující náhledy ukazují, jak by jednotlivé vizualizace z
+tabulky~\ref{tab:vizualizace} vypadaly na reálných datech. V aplikaci budou
+interaktivní, zde jde o statické ukázky vytvořené z analyzovaného souboru.
+
+\paragraph{Mapa objektů s barvou podle atributu.} Mapa zobrazuje objekty
+v obrysu a barva vyjadřuje vybraný atribut, zde způsob využití
+(obrázek~\ref{fig:priklad-mapa}). Po výběru objektu se zobrazí jeho údaje.
+Vedle způsobu využití lze barvou vyjádřit podlažnost nebo rok dokončení.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{28_priklad_mapa_atribut}
+\caption{Příklad mapy objektů s barvou podle způsobu využití a informací o vybraném objektu}
+\label{fig:priklad-mapa}
+\end{figure}
+
+\paragraph{Hustota v síti při malém přiblížení.} Při velkém území nelze
+zobrazit každý objekt zvlášť, proto se zástavba agreguje do šestiúhelníkové
+sítě a barva vyjadřuje počet objektů v buňce. Příkladem je mapa na
+obrázku~\ref{fig:hustota}. Při přiblížení aplikace přechází na zobrazení
+jednotlivých objektů podle předchozího příkladu.
+
+\paragraph{Časová osa a posuvník data.} Uživatel posuvníkem volí datum
+a mapa ukazuje stav území k tomuto datu (obrázek~\ref{fig:priklad-osa}).
+Objekty, které přibyly po začátku sledování, jsou vyznačeny odlišnou
+barvou. Vybraná lokalita ukazuje novou výstavbu, která v roce 2015 ještě
+neexistovala (počet objektů v území vzrostl z 317 na 410).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{29_priklad_casova_osa}
+\caption{Příklad časové osy: stav stejného území ve třech datech}
+\label{fig:priklad-osa}
+\end{figure}
+
+\paragraph{Časová řada změn, nových a zaniklých objektů.} Graf ukazuje počet
+změn za měsíc. Hromadné aktualizace registru, například 01/2024 s 43\,521
+změnami, jsou vyznačeny barevně a osa je logaritmická, aby bylo vidět
+i běžné měsíce (obrázek~\ref{fig:priklad-rada}). Stejně lze zobrazit nové
+a zaniklé objekty.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{30_priklad_casova_rada}
+\caption{Příklad časové řady změn s odlišenými hromadnými aktualizacemi}
+\label{fig:priklad-rada}
+\end{figure}
+
+\paragraph{Detail objektu s historií verzí.} Po výběru objektu se zobrazí
+jeho verze v čase a změněné údaje jsou zvýrazněny (obrázek~\ref{fig:priklad-detail}).
+U příkladového objektu se v roce 2024 změnilo využití z rodinného domu na bytový
+dům a současně počet podlaží, bytů i zastavěná plocha.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{31_priklad_detail_objektu}
+\caption{Příklad detailu objektu s historií čtyř verzí}
+\label{fig:priklad-detail}
+\end{figure}
+
+\paragraph{Srovnání obcí.} Tabulka s barevnou škálou umožňuje srovnat
+vybrané obce podle několika ukazatelů najednou (obrázek~\ref{fig:priklad-srovnani}):
+podílu rodinných a bytových domů, průměrné podlažnosti, stáří zástavby,
+vybavení kanalizací a intenzity nové výstavby.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{32_priklad_srovnani_obci}
+\caption{Příklad srovnání osmi největších obcí podle vybraných ukazatelů}
+\label{fig:priklad-srovnani}
+\end{figure}
+
+\paragraph{Rozdělení hodnot s filtrem.} Uživatel zvolí kritéria a graf
+ukazuje rozdělení vybraného atributu spolu s počtem vyhovujících objektů
+(obrázek~\ref{fig:priklad-filtr}). Na příkladu jsou vybrány rodinné domy
+v Brně se zastavěnou plochou 80 až 150\,m$^2$; vyhovuje 18\,269 z 30\,819
+objektů.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{33_priklad_filtr}
+\caption{Příklad filtrování s rozdělením zastavěné plochy}
+\label{fig:priklad-filtr}
+\end{figure}
+
+\paragraph{Indikátor úplnosti.} Každý graf je doplněn informací o tom, u
+kolika objektů je zobrazený údaj vyplněn (obrázek~\ref{fig:priklad-uplnost}).
+Ukazatele se mezi obcemi liší, například podlažnost je vyplněna u 59\,\%
+objektů v Kuřimi, ale u 78\,\% ve Střelicích.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{34_priklad_uplnost}
+\caption{Příklad indikátoru úplnosti údajů podle obcí}
+\label{fig:priklad-uplnost}
+\end{figure}
