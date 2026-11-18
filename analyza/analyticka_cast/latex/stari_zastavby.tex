@@ -1,0 +1,83 @@
+% Vyžaduje balíčky: graphicx, float. Obrázky: analyza/analyticka_cast/obrazky/
+% (\graphicspath{{analyza/analyticka_cast/obrazky/}}).
+\section{Stáří zástavby a vývoj v čase}
+
+Rok dokončení je vyplněn u 63,2\,\% aktuálních objektů. U starší zástavby
+je ale třeba počítat s tím, že nejde o přesné datum: 64,4\,\% všech dat
+dokončení připadá na 31.\,prosince a četnosti se výrazně hromadí na hranicích
+let 1919, 1945, 1960, 1970, 1980, 1990 a 2000. Tyto hodnoty odpovídají
+zařazení objektu do období, ve kterém byl postaven, a ne skutečnému roku
+výstavby. Věrohodné roky jsou až od roku 2001. Starší zástavba se proto
+hodnotí po obdobích a tempo výstavby po jednotlivých letech od roku 2001.
+
+\subsection{Stáří zástavby}
+
+Podle období dokončení (obrázek~\ref{fig:stari}) pochází 27\,\% objektů
+s vyplněným datem z doby do roku 1945, 32\,\% do roku 1960 a 34\,\% z roku
+2001 a později. Nejpočetnější je období 1920--1945 (12\,855 objektů),
+následuje období od roku 2011 (12\,028) a 2001--2010 (10\,014). Období mají
+různou délku, takže počty nejsou mezi sebou přímo srovnatelné.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{18_stari_zastavby}
+\caption{Počet objektů podle období dokončení}
+\label{fig:stari}
+\end{figure}
+
+\subsection{Tempo výstavby}
+
+Počet dokončených objektů se v letech 2001--2024 pohyboval mezi 648 (rok
+2012) a 1\,429 (rok 2007) ročně (obrázek~\ref{fig:tempo}). Nejvíce objektů
+bylo dokončeno v letech 2004--2007, v letech 2001--2010 v průměru asi
+1\,000 ročně, od roku 2012 asi 795 ročně. Rodinné domy tvoří 64\,\% z nich,
+bytové domy a garáže po 7\,\%. Roky 2025 a 2026 jsou neúplné, protože se
+dokončené stavby do registru zapisují se zpožděním. Ve sledované historii
+RÚIAN se za rok objeví v průměru 808 nových objektů, což odpovídá počtu
+dokončených staveb zjištěnému z dat dokončení.
+
+Graf zahrnuje pouze objekty, které v registru zůstaly. Stavby, které
+mezitím zanikly, v něm nejsou, takže starší roky mohou být o něco
+podhodnocené.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{19_tempo_vystavby}
+\caption{Počet dokončených objektů podle roku dokončení a způsobu využití}
+\label{fig:tempo}
+\end{figure}
+
+\subsection{Konstrukce podle stáří}
+
+V každém období převažuje zděná konstrukce (76--93\,\%,
+obrázek~\ref{fig:konstrukce}). Zřetelnou stopu zanechala panelová výstavba:
+stěnové panely mají 10\,\% objektů z let 1961--1970, 17\,\% z let 1971--1980
+a 16\,\% z let 1981--1990, v ostatních obdobích nejvýše 3\,\%. Celkem 79\,\%
+panelových objektů pochází z let 1961--1990. Dřevěné konstrukce jsou častější
+až v nejnovějším období.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{20_konstrukce_podle_obdobi}
+\caption{Druh konstrukce podle období dokončení}
+\label{fig:konstrukce}
+\end{figure}
+
+\subsection{Životnost objektů}
+
+Historie obsahuje 22\,347 objektů, jejichž platnost skončila zánikem. Z těchto
+dat ale nelze spolehlivě odvodit životnost staveb (obrázek~\ref{fig:zanik}).
+O zaniklých objektech víme jen málo: využití má vyplněné 32\,\%, zastavěnou
+plochu 3\,\%, podlažnost 6\,\% a datum dokončení 3\,\% (765 objektů).
+Většina (71\,\%) jsou budovy s číslem evidenčním. Jde tedy převážně
+o neúplné záznamy odstraněné z registru, ne o skutečně zbourané budovy. Stáří
+v době zániku (medián 15 let) navíc zkreslují zástupná data typu
+31.\,12.\,2000. Zánik objektu proto v aplikaci prezentujeme jako událost
+v evidenci, ne jako konec fyzické existence stavby.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{21_zanikle_objekty_vyplnenost}
+\caption{Úplnost údajů u zaniklých a aktuálních objektů}
+\label{fig:zanik}
+\end{figure}
