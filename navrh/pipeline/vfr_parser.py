@@ -42,7 +42,8 @@ SCALAR_FIELDS = {
 
 INTEGER_FIELDS = ("unit_count", "floor_count")
 FLOAT_FIELDS = ("built_up_area",)
-DATE_FIELDS = ("record_valid_from", "completion_date", "snapshot_date", "valid_from", "valid_to")
+DATE_FIELDS = ("record_valid_from", "completion_date", "snapshot_date", "valid_from", "valid_to",
+               "event_date")
 LIST_FIELDS = ("house_numbers", "parcel_ids")
 
 # attributes that change on the same object without a substantive change

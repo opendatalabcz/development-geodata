@@ -11,3 +11,7 @@ navrh/cleaning/logs/
 
 # downloaded history cache
 navrh/data/history/
+
+# change events and histories derived from them
+navrh/data/events/
+navrh/data/history_from_events/

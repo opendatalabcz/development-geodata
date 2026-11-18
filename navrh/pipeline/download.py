@@ -120,6 +120,27 @@ def _extract_xml_bytes(raw: bytes, filename: str) -> bytes:
     raise ValueError(f"unknown file suffix: {filename}")
 
 
+def fetch_snapshot_file(
+    yyyymm: str,
+    municipality_code: str,
+    filename: str,
+    session: requests.Session | None = None,
+) -> MunicipalitySnapshotResult:
+    """Download and parse the already known file `filename` of one
+    municipality in one month - all in memory, nothing is written to disk."""
+    session = session or requests
+    try:
+        url = f"{BASE_URL}/{yyyymm}/{filename}"
+        resp = session.get(url, headers={"User-Agent": USER_AGENT}, timeout=60)
+        resp.raise_for_status()
+
+        xml_bytes = _extract_xml_bytes(resp.content, filename)
+        gdf = parse_building_objects(io.BytesIO(xml_bytes), source_name=filename)
+        return MunicipalitySnapshotResult(yyyymm, municipality_code, filename, gdf)
+    except Exception as exc:
+        return MunicipalitySnapshotResult(yyyymm, municipality_code, None, None, error=str(exc))
+
+
 def fetch_municipality_snapshot(
     yyyymm: str,
     municipality_code: str,
@@ -149,13 +170,7 @@ def fetch_municipality_snapshot(
                 yyyymm, municipality_code, None, None, error=MISSING_FILE_ERROR
             )
 
-        url = f"{BASE_URL}/{yyyymm}/{filename}"
-        resp = session.get(url, headers={"User-Agent": USER_AGENT}, timeout=60)
-        resp.raise_for_status()
-
-        xml_bytes = _extract_xml_bytes(resp.content, filename)
-        gdf = parse_building_objects(io.BytesIO(xml_bytes), source_name=filename)
-        return MunicipalitySnapshotResult(yyyymm, municipality_code, filename, gdf)
+        return fetch_snapshot_file(yyyymm, municipality_code, filename, session=session)
     except Exception as exc:
         return MunicipalitySnapshotResult(yyyymm, municipality_code, None, None, error=str(exc))
 
