@@ -70,6 +70,7 @@ class CleaningLog:
         self._rows: list[dict] = []
 
     def add(self, code, row_index, column, old_value, new_value, action, reason):
+        """Append one record to the log."""
         self._rows.append({
             "code": code, "row_index": row_index, "column": column,
             "old_value": old_value, "new_value": new_value,
@@ -77,6 +78,7 @@ class CleaningLog:
         })
 
     def to_frame(self) -> pd.DataFrame:
+        """Return the log as a DataFrame with `LOG_COLS` columns."""
         log = pd.DataFrame(self._rows, columns=LOG_COLS)
         # old/new values mix strings, numbers and dates, so they are stored as text
         for col in ("old_value", "new_value"):
@@ -86,6 +88,7 @@ class CleaningLog:
 
 
 def _null_and_log(df: pd.DataFrame, mask: pd.Series, col: str, log: CleaningLog, reason: str) -> None:
+    """Set `col` to missing where `mask` is true and log each change."""
     for idx in df.index[mask]:
         log.add(df.at[idx, "code"], idx, col, df.at[idx, col], None, "nulled_value", reason)
     if pd.api.types.is_integer_dtype(df[col]) and not pd.api.types.is_extension_array_dtype(df[col]):
@@ -95,6 +98,7 @@ def _null_and_log(df: pd.DataFrame, mask: pd.Series, col: str, log: CleaningLog,
 
 
 def load_history(path: Path) -> gpd.GeoDataFrame:
+    """Read the history GeoParquet and parse its date columns."""
     gdf = gpd.read_parquet(path)
     for col in DATE_COLS:
         if col in gdf.columns:
@@ -103,6 +107,7 @@ def load_history(path: Path) -> gpd.GeoDataFrame:
 
 
 def load_codelists() -> dict[str, set | None]:
+    """Load the valid codes for each codelist-checked column; `None` where the codelist file is missing."""
     codelists: dict[str, set | None] = {}
     for col, fname in CODELISTS.items():
         path = CODELIST_DIR / fname
@@ -117,8 +122,8 @@ def load_codelists() -> dict[str, set | None]:
 
 def check_scd2_invariants(df: pd.DataFrame) -> None:
     """The valid_from/valid_to/end_reason bookkeeping is derived by the
-    pipeline's own SCD2 build, not sourced from RÚIAN - a violation here means
-    a pipeline bug, so cleaning refuses to run rather than paper over it."""
+    pipeline's own SCD2 build. A violation here means
+    a pipeline bug, so cleaning refuses to run."""
     problems = []
 
     if df["valid_from"].isna().any():
@@ -159,6 +164,7 @@ def check_scd2_invariants(df: pd.DataFrame) -> None:
 
 
 def drop_invalid_identifiers(df: pd.DataFrame, log: CleaningLog) -> pd.DataFrame:
+    """Drop rows with a missing required column or a `code` that is not a positive integer."""
     bad = pd.Series(False, index=df.index)
 
     for col in REQUIRED_COLS:
@@ -179,6 +185,7 @@ def drop_invalid_identifiers(df: pd.DataFrame, log: CleaningLog) -> pd.DataFrame
 
 
 def null_out_of_codelist(df: pd.DataFrame, codelists: dict[str, set | None], log: CleaningLog) -> None:
+    """Null values that are not in the column's codelist."""
     for col, valid_codes in codelists.items():
         if col not in df.columns or valid_codes is None:
             continue
@@ -190,6 +197,7 @@ def null_out_of_codelist(df: pd.DataFrame, codelists: dict[str, set | None], log
 
 
 def null_out_of_range(df: pd.DataFrame, log: CleaningLog) -> None:
+    """Null numeric values outside their plausible range, and non-positive `district_code`."""
     for col, (lo, hi) in NUMERIC_RANGES.items():
         if col not in df.columns:
             continue
@@ -202,10 +210,11 @@ def null_out_of_range(df: pd.DataFrame, log: CleaningLog) -> None:
 
 
 def null_implausible_completion_dates(df: pd.DataFrame, log: CleaningLog) -> None:
+    """Null `completion_date` before year `MIN_COMPLETION_YEAR` or after the row's snapshot date."""
     col = "completion_date"
-    today = pd.Timestamp.today().normalize()
-    bad = df[col].notna() & ((df[col].dt.year < MIN_COMPLETION_YEAR) | (df[col] > today))
-    _null_and_log(df, bad, col, log, f"implausible date (before year {MIN_COMPLETION_YEAR} or in the future)")
+    # "future" is judged against the snapshot the row comes from (valid_from == snapshot_date)
+    bad = df[col].notna() & ((df[col].dt.year < MIN_COMPLETION_YEAR) | (df[col] > df["valid_from"]))
+    _null_and_log(df, bad, col, log, f"implausible date (before year {MIN_COMPLETION_YEAR} or after the row's snapshot date)")
 
 
 def fill_completion_date_across_versions(df: pd.DataFrame, log: CleaningLog) -> None:
@@ -249,6 +258,7 @@ def fill_completion_date_across_versions(df: pd.DataFrame, log: CleaningLog) -> 
 
 
 def clean_history(in_path: Path, out_path: Path, log_path: Path) -> None:
+    """Run all cleaning steps on one history file and write the cleaned GeoParquet and the log CSV."""
     df = load_history(in_path)
     check_scd2_invariants(df)
 

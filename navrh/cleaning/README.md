@@ -59,8 +59,9 @@ zalogovat.
 **`district_code`** —  kontrola > 0. Mimo ⇒
 **vynulovat**.
 
-**`completion_date`** — rozsah [1000, dnes], nesmí být v budoucnosti.
-Mimo ⇒ **vynulovat**. 
+**`completion_date`** — rozsah [1000, datum snapshotu], nesmí být
+v budoucnosti vůči snapshotu, ze kterého řádek pochází (`snapshot_date`,
+tj. `valid_from`). Mimo ⇒ **vynulovat**.
 
 **`iskn_building_id`, `house_numbers`, `parcel_ids`** — volitelné,
 nekontroluje se.
