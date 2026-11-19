@@ -41,7 +41,7 @@ Jako první probíhá kontrola dat z pipeliny - při porušení nastane chyba a 
 (délka se liší - 8 - 9 míst). Neplatné/chybí ⇒ **zahodit řádek**,
 zalogovat.
 
-**`municipality_code`, `municipality_name`** — musí být vyplněné. Neplatné/chybí ⇒ **zahodit řádek**,
+**`municipality_code`, `municipality_name`** — musí být vyplněné. Chybí ⇒ **zahodit řádek**,
 zalogovat.
 
 **`change_proposal_global_id`, `transaction_id`** — chybí ⇒ **zahodit řádek**
@@ -56,7 +56,8 @@ zalogovat.
 
 **`built_up_area`** —  rozsah 0–100 000 m². Mimo ⇒ **vynulovat**.
 
-**`district_code`** —  kontrola > 0. Mimo ⇒
+**`district_code`** —  kód části obce, uložený jako řetězec; musí být
+kladné celé číslo. Jinak (nečíselná hodnota, ≤ 0, desetinné číslo) ⇒
 **vynulovat**.
 
 **`completion_date`** — rozsah [1000, datum snapshotu], nesmí být

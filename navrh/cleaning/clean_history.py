@@ -197,7 +197,7 @@ def null_out_of_codelist(df: pd.DataFrame, codelists: dict[str, set | None], log
 
 
 def null_out_of_range(df: pd.DataFrame, log: CleaningLog) -> None:
-    """Null numeric values outside their plausible range, and non-positive `district_code`."""
+    """Null numeric values outside their plausible range, and a `district_code` that is not a positive integer."""
     for col, (lo, hi) in NUMERIC_RANGES.items():
         if col not in df.columns:
             continue
@@ -205,8 +205,9 @@ def null_out_of_range(df: pd.DataFrame, log: CleaningLog) -> None:
         _null_and_log(df, bad, col, log, f"outside the plausible range [{lo}, {hi}]")
 
     if "district_code" in df.columns:
-        bad = df["district_code"].notna() & (pd.to_numeric(df["district_code"], errors="coerce") <= 0)
-        _null_and_log(df, bad, "district_code", log, "not a positive number")
+        num = pd.to_numeric(df["district_code"], errors="coerce")
+        bad = df["district_code"].notna() & ~((num > 0) & (num % 1 == 0))
+        _null_and_log(df, bad, "district_code", log, "not a positive integer")
 
 
 def null_implausible_completion_dates(df: pd.DataFrame, log: CleaningLog) -> None:
