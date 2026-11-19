@@ -1,12 +1,13 @@
 """Clean one `<name>_history.parquet` produced by
-`navrh/pipeline/build_region.py`, per the rules in the `README.md` next to this script.
+`ruian_history/pipeline/build_region.py`, per the rules in the `README.md` next to this script.
 
-The cleaned GeoParquet goes to `navrh/clean_output/`; the log of every
-drop/null/fill goes to `navrh/cleaning/logs/<name>_cleaning_log.csv`.
+The cleaned GeoParquet goes to `data/clean_output/`; the log of every
+drop/null/fill goes to `data/cleaning_logs/<name>_cleaning_log.csv`
+(the data directory is `./data`, or `$RUIAN_DATA_DIR`).
 
 Usage:
-    python -m navrh.cleaning.clean_history 539309
-    python -m navrh.cleaning.clean_history brno_area --input-dir navrh/output
+    python -m ruian_history.cleaning.clean_history 539309
+    python -m ruian_history.cleaning.clean_history brno_area --input-dir data/output
 """
 
 from __future__ import annotations
@@ -18,14 +19,10 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-from navrh.pipeline.export_parquet import write_geoparquet
+from ..paths import CLEAN_OUTPUT_DIR, CLEANING_LOG_DIR, OUTPUT_DIR
+from ..pipeline.export_parquet import write_geoparquet
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent.parent
-OUT_DIR = REPO_ROOT / "navrh" / "output"
-CLEAN_OUTPUT_DIR = REPO_ROOT / "navrh" / "clean_output"
-LOG_DIR = SCRIPT_DIR / "logs"
-CODELIST_DIR = REPO_ROOT / "analyza" / "ciselniky"
+CODELIST_DIR = Path(__file__).resolve().parent / "codelists"
 
 # column -> codelist file in CODELIST_DIR (KOD;NAZEV;..., cp1250, ';'-separated)
 CODELISTS = {
@@ -267,9 +264,9 @@ def clean_history(in_path: Path, out_path: Path, log_path: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Clean a pipeline history GeoParquet.")
     parser.add_argument("name", help="base name of the pipeline output, e.g. 539309 or brno_area")
-    parser.add_argument("--input-dir", type=Path, default=OUT_DIR)
+    parser.add_argument("--input-dir", type=Path, default=OUTPUT_DIR)
     parser.add_argument("--output-dir", type=Path, default=CLEAN_OUTPUT_DIR)
-    parser.add_argument("--log-dir", type=Path, default=LOG_DIR)
+    parser.add_argument("--log-dir", type=Path, default=CLEANING_LOG_DIR)
     args = parser.parse_args()
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
