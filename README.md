@@ -12,5 +12,6 @@ Podrobnosti k pipelině (rozsah měsíců, navazování běhů, výstupy) jsou v
 [navrh/pipeline/README.md](navrh/pipeline/README.md).
 
 - `navrh/pipeline/` – vlastní pipeline (stažení, parsování, historie, exporty)
+- `navrh/cleaning/` – čištění výstupu pipeliny ([README](navrh/cleaning/README.md))
 - `analyza/` – průzkumové notebooky, profiling zdrojových dat, číselníky
 - `research/` – poznámky ke zdrojům a datovým sadám
