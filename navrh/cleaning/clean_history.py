@@ -224,41 +224,20 @@ def null_implausible_completion_dates(df: pd.DataFrame, log: CleaningLog) -> pd.
 def fill_completion_date_across_versions(df: pd.DataFrame, log: CleaningLog) -> pd.DataFrame:
     """Return `df` with missing completion_date values filled from other versions of the same object; the rules are in the README."""
     col = "completion_date"
-    codes = pd.to_numeric(df["code"]).to_numpy()
-    valid_from = df["valid_from"].to_numpy()
-    completion = df[col].to_numpy(copy=True)
+    ordered = df.assign(_code=pd.to_numeric(df["code"])).sort_values(["_code", "valid_from"])
+    by_object = ordered.groupby("_code")[col]
+    candidate = by_object.ffill().fillna(by_object.bfill())
 
-    order = np.lexsort((valid_from, codes))
-    group_start = np.flatnonzero(np.r_[True, codes[order][1:] != codes[order][:-1]])
-    group_end = np.r_[group_start[1:], len(order)]
+    missing = ordered[col].isna() & candidate.notna()
+    fits = candidate <= ordered["valid_from"]
+    for idx in ordered.index[missing & fits]:
+        log.add(ordered.at[idx, "_code"], idx, col, None, candidate[idx], "filled_value",
+                "completion_date propagated from the nearest known value for this object")
+    for idx in ordered.index[missing & ~fits]:
+        log.add(ordered.at[idx, "_code"], idx, col, None, None, "left_null",
+                "the nearest known completion_date for this object is later than this version's valid_from")
 
-    for start, end in zip(group_start, group_end):
-        positions = order[start:end]  # this object's row positions, chronological (valid_from) order
-        group_completion = completion[positions]
-        known = np.flatnonzero(~pd.isna(group_completion))
-        if len(known) == 0:
-            continue
-        known_values = group_completion[known]
-
-        for local_i in np.flatnonzero(pd.isna(group_completion)):
-            vf_i = valid_from[positions[local_i]]
-            split = np.searchsorted(known, local_i)  # known[:split] earlier versions, known[split:] later ones
-
-            source = next((k for k in range(split - 1, -1, -1) if known_values[k] <= vf_i), None)
-            if source is None:
-                source = next((k for k in range(split, len(known)) if known_values[k] <= vf_i), None)
-
-            pos = positions[local_i]
-            if source is None:
-                log.add(codes[pos], pos, col, None, None, "left_null",
-                         "no known completion_date for this object is <= this version's valid_from")
-                continue
-            value = known_values[source]
-            completion[pos] = value
-            log.add(codes[pos], pos, col, None, value, "filled_value",
-                     "completion_date propagated from the nearest known value for this object")
-
-    return df.assign(**{col: completion})
+    return df.assign(**{col: df[col].where(~(missing & fits), candidate)})
 
 
 def clean_history(in_path: Path, out_path: Path, log_path: Path) -> None:
