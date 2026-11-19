@@ -19,14 +19,17 @@ import os
 from pathlib import Path
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
+import shapely
 
 from .download import month_range
-from .vfr_parser import CRS_VFR, VOLATILE_FIELDS
+from .export_parquet import write_geoparquet
+from .vfr_parser import CRS_VFR, LIST_FIELDS, VOLATILE_FIELDS, coerce_dtypes
 
 # control/metadata columns, not substantive attributes of a building object
 _NON_ATTR_COLS = {
-    "code", "gml_id", "geometry", "reference_point", "has_polygon",
+    "code", "gml_id", "geometry", "reference_point",
     "snapshot_date", "source_file",
     "valid_from", "valid_to", "end_reason",
     *VOLATILE_FIELDS,
@@ -44,14 +47,50 @@ def _geoms_equal(a, b) -> bool:
         return False
 
 
-def _row_differs(old: dict, new: dict, attr_cols: list[str]) -> bool:
-    for c in attr_cols:
-        ov, nv = old.get(c), new.get(c)
-        if pd.isna(ov) and pd.isna(nv):
-            continue
-        if ov != nv:
-            return True
-    return not _geoms_equal(old.get("geometry"), new.get("geometry"))
+def _list_key(values: pd.Series) -> pd.Series:
+    """Lists become comparable strings (order matters, as with list equality)."""
+    return values.map(lambda v: "\x1f".join(map(str, v)) if isinstance(v, list) else None)
+
+
+def _column_differs(old: pd.Series, new: pd.Series) -> np.ndarray:
+    """Per row: True when exactly one of the values is missing, or both are
+    present and unequal."""
+    old_na, new_na = old.isna().to_numpy(), new.isna().to_numpy()
+    both = ~old_na & ~new_na
+    equal = np.zeros(len(old), dtype=bool)
+    if both.any():
+        equal[both] = np.asarray(old[both].to_numpy() == new[both].to_numpy(), dtype=bool)
+    return ~((old_na & new_na) | equal)
+
+
+def _geometry_differs(old: pd.Series, new: pd.Series) -> np.ndarray:
+    """Per row: True when the geometries differ. Exactly equal ones are settled
+    in one vectorized call; only the rest go through the topological
+    `_geoms_equal`."""
+    old, new = old.to_numpy(), new.to_numpy()
+    old_na, new_na = shapely.is_missing(old), shapely.is_missing(new)
+    differs = old_na != new_na
+    both = ~old_na & ~new_na
+    exact = np.zeros(len(old), dtype=bool)
+    if both.any():
+        exact[both] = shapely.equals_exact(old[both], new[both], tolerance=0)
+    for i in np.flatnonzero(both & ~exact):
+        differs[i] = not _geoms_equal(old[i], new[i])
+    return differs
+
+
+def rows_differ(old: pd.DataFrame, new: pd.DataFrame, attr_cols: list[str]) -> np.ndarray:
+    """Per row (the two frames are aligned): True when one of the attributes
+    `attr_cols`, the geometry or the reference point changed."""
+    differs = np.zeros(len(new), dtype=bool)
+    for col in attr_cols:
+        old_col, new_col = old[col], new[col]
+        if col in LIST_FIELDS:
+            old_col, new_col = _list_key(old_col), _list_key(new_col)
+        differs |= _column_differs(old_col, new_col)
+    differs |= _geometry_differs(old["geometry"], new["geometry"])
+    differs |= _geometry_differs(old["reference_point"], new["reference_point"])
+    return differs
 
 
 class HistoryState:
@@ -155,24 +194,31 @@ class HistoryState:
             self._attr_cols = [c for c in gdf.columns if c not in _NON_ATTR_COLS]
         attr_cols = self._attr_cols
 
-        new_by_code = {row["code"]: row for row in gdf.to_dict("records")}
+        # a code repeated within a snapshot keeps its last row
+        current = gdf.drop_duplicates("code", keep="last").reset_index(drop=True)
 
         # vanished objects -> close as removed
+        present = set(current["code"])
         for code in list(self.open_by_code):
-            if code not in new_by_code:
+            if code not in present:
                 self._close(code, snapshot_date, "removed")
 
-        # new / changed / unchanged
-        for code, new_row in new_by_code.items():
-            if code not in self.open_by_code:
-                self._open(new_row, snapshot_date)
-                continue
-
-            row_id = self.open_by_code[code]
-            old_row = self.rows[row_id]
-            if _row_differs(old_row, new_row, attr_cols):
+        # objects that were open before: changed ones are closed and reopened,
+        # unchanged ones are left alone; objects not open before are opened
+        to_open = ~current["code"].isin(self.open_by_code.keys()).to_numpy()
+        known = np.flatnonzero(~to_open)
+        if len(known) > 0:
+            both = current.iloc[known].reset_index(drop=True)
+            columns = [*attr_cols, "geometry", "reference_point"]
+            old = pd.DataFrame([self.rows[self.open_by_code[code]] for code in both["code"]],
+                               columns=columns)
+            changed = rows_differ(old, both, attr_cols)
+            for code in both["code"][changed]:
                 self._close(code, snapshot_date, "change")
-                self._open(new_row, snapshot_date)
+            to_open[known[changed]] = True
+
+        for row in current[to_open].to_dict("records"):
+            self._open(row, snapshot_date)
 
         self.last_snapshot = snapshot_date
         self._mark_processed(yyyymm)
@@ -198,7 +244,7 @@ class HistoryState:
         if not self.rows:
             return gpd.GeoDataFrame(columns=["code", "valid_from", "valid_to", "end_reason", "geometry"],
                                      geometry="geometry", crs=CRS_VFR)
-        df = pd.DataFrame(list(self.rows.values()))
+        df = coerce_dtypes(pd.DataFrame(list(self.rows.values())))
         gdf = gpd.GeoDataFrame(df, geometry="geometry", crs=CRS_VFR)
         if "reference_point" in gdf.columns:
             gdf["reference_point"] = gpd.GeoSeries(gdf["reference_point"], crs=CRS_VFR)
@@ -212,9 +258,7 @@ class HistoryState:
         path.parent.mkdir(parents=True, exist_ok=True)
         gdf = self.to_geodataframe()
 
-        tmp_path = path.with_suffix(path.suffix + ".tmp")
-        gdf.to_parquet(tmp_path)
-        os.replace(tmp_path, path)
+        write_geoparquet(gdf, path, quiet=True)
 
         meta_path = path.with_suffix(".progress.json")
         meta_tmp = meta_path.with_suffix(meta_path.suffix + ".tmp")
@@ -249,7 +293,7 @@ class HistoryState:
         if not path.exists():
             return state
 
-        gdf = gpd.read_parquet(path)
+        gdf = coerce_dtypes(gpd.read_parquet(path))
         state._attr_cols = [c for c in gdf.columns if c not in _NON_ATTR_COLS]
         for row_id, row in enumerate(gdf.to_dict("records")):
             state.rows[row_id] = row

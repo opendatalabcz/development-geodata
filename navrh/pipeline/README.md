@@ -101,6 +101,26 @@ výchozí rozsah od `201508` u nich funguje dál.
 
 ## Výstupy
 
-`navrh/output/<jméno>_history.{gpkg,csv,geojson}`, kde `<jméno>` je kód obce
-resp. jméno regionu (přepíše `--name`). CSV (atributy) a GeoJSON (geometrie)
-jsou propojitelné přes sloupec `code`.
+`navrh/output/<jméno>_history.parquet`, kde `<jméno>` je kód obce resp. jméno
+regionu (přepíše `--name`). Jde o GeoParquet: atributy i geometrie jsou v jedné
+tabulce, CRS (EPSG:5514) je v metadatech souboru, seznamové sloupce zůstávají
+seznamy a datumy jsou skutečné `date` (ne časové značky). Soubor se čte např.
+`geopandas.read_parquet(...)`.
+
+### Typy sloupců
+
+Typy se nastavují už v parseru (`vfr_parser.coerce_dtypes`), takže je má i
+průběžný stav v `navrh/data/history/`.
+
+| sloupce | typ |
+|---|---|
+| `code`, `gml_id`, všechny `*_code`, `*_id`, `district_code` | řetězec |
+| `unit_count`, `floor_count` | celé číslo (nullable `int32`) |
+| `built_up_area` | `float64` |
+| `record_valid_from`, `completion_date`, `snapshot_date`, `valid_from`, `valid_to` | `date` |
+| `house_numbers`, `parcel_ids` | seznam řetězců (`null`, když nejsou) |
+| `geometry` | `Polygon`/`MultiPolygon` v EPSG:5514, `null` bez hranice objektu; neplatné polygony se **nechávají** (opravuje je až čištění) |
+| `reference_point` | `Point` v EPSG:5514 (definiční bod), může být `null` |
+
+Hodnoty, které nejdou převést na daný typ (např. nečíselný počet bytů), se
+uloží jako `null`.
