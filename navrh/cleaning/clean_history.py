@@ -87,14 +87,15 @@ class CleaningLog:
         return log
 
 
-def _null_and_log(df: pd.DataFrame, mask: pd.Series, col: str, log: CleaningLog, reason: str) -> None:
-    """Set `col` to missing where `mask` is true and log each change."""
+def _null_and_log(df: pd.DataFrame, mask: pd.Series, col: str, log: CleaningLog, reason: str) -> pd.DataFrame:
+    """Return `df` with `col` set to missing where `mask` is true, logging each change."""
     for idx in df.index[mask]:
         log.add(df.at[idx, "code"], idx, col, df.at[idx, col], None, "nulled_value", reason)
-    if pd.api.types.is_integer_dtype(df[col]) and not pd.api.types.is_extension_array_dtype(df[col]):
+    values = df[col]
+    if pd.api.types.is_integer_dtype(values) and not pd.api.types.is_extension_array_dtype(values):
         # nulling must produce missing, not a 0 that reads back as a real recorded value
-        df[col] = df[col].astype("float64")
-    df.loc[mask, col] = np.nan
+        values = values.astype("float64")
+    return df.assign(**{col: values.mask(mask)})
 
 
 def load_history(path: Path) -> gpd.GeoDataFrame:
@@ -184,8 +185,8 @@ def drop_invalid_identifiers(df: pd.DataFrame, log: CleaningLog) -> pd.DataFrame
     return df[~bad].reset_index(drop=True)
 
 
-def null_out_of_codelist(df: pd.DataFrame, codelists: dict[str, set | None], log: CleaningLog) -> None:
-    """Null values that are not in the column's codelist."""
+def null_out_of_codelist(df: pd.DataFrame, codelists: dict[str, set | None], log: CleaningLog) -> pd.DataFrame:
+    """Return `df` with values that are not in the column's codelist nulled."""
     for col, valid_codes in codelists.items():
         if col not in df.columns or valid_codes is None:
             continue
@@ -193,33 +194,35 @@ def null_out_of_codelist(df: pd.DataFrame, codelists: dict[str, set | None], log
         as_int = pd.to_numeric(df.loc[present, col], errors="coerce")
         bad_idx = as_int.index[as_int.isna() | ~as_int.isin(valid_codes)]
         mask = df.index.isin(bad_idx)
-        _null_and_log(df, mask, col, log, f"value outside the {col} codelist")
+        df = _null_and_log(df, mask, col, log, f"value outside the {col} codelist")
+    return df
 
 
-def null_out_of_range(df: pd.DataFrame, log: CleaningLog) -> None:
-    """Null numeric values outside their plausible range, and a `district_code` that is not a positive integer."""
+def null_out_of_range(df: pd.DataFrame, log: CleaningLog) -> pd.DataFrame:
+    """Return `df` with numeric values outside their plausible range, and a `district_code` that is not a positive integer, nulled."""
     for col, (lo, hi) in NUMERIC_RANGES.items():
         if col not in df.columns:
             continue
         bad = df[col].notna() & ((df[col] < lo) | (df[col] > hi))
-        _null_and_log(df, bad, col, log, f"outside the plausible range [{lo}, {hi}]")
+        df = _null_and_log(df, bad, col, log, f"outside the plausible range [{lo}, {hi}]")
 
     if "district_code" in df.columns:
         num = pd.to_numeric(df["district_code"], errors="coerce")
         bad = df["district_code"].notna() & ~((num > 0) & (num % 1 == 0))
-        _null_and_log(df, bad, "district_code", log, "not a positive integer")
+        df = _null_and_log(df, bad, "district_code", log, "not a positive integer")
+    return df
 
 
-def null_implausible_completion_dates(df: pd.DataFrame, log: CleaningLog) -> None:
-    """Null `completion_date` before year `MIN_COMPLETION_YEAR` or after the row's snapshot date."""
+def null_implausible_completion_dates(df: pd.DataFrame, log: CleaningLog) -> pd.DataFrame:
+    """Return `df` with `completion_date` before year `MIN_COMPLETION_YEAR` or after the row's snapshot date nulled."""
     col = "completion_date"
     # "future" is judged against the snapshot the row comes from (valid_from == snapshot_date)
     bad = df[col].notna() & ((df[col].dt.year < MIN_COMPLETION_YEAR) | (df[col] > df["valid_from"]))
-    _null_and_log(df, bad, col, log, f"implausible date (before year {MIN_COMPLETION_YEAR} or after the row's snapshot date)")
+    return _null_and_log(df, bad, col, log, f"implausible date (before year {MIN_COMPLETION_YEAR} or after the row's snapshot date)")
 
 
-def fill_completion_date_across_versions(df: pd.DataFrame, log: CleaningLog) -> None:
-    """Fill missing completion_date values from other versions of the same object; the rules are in the README."""
+def fill_completion_date_across_versions(df: pd.DataFrame, log: CleaningLog) -> pd.DataFrame:
+    """Return `df` with missing completion_date values filled from other versions of the same object; the rules are in the README."""
     col = "completion_date"
     codes = pd.to_numeric(df["code"]).to_numpy()
     valid_from = df["valid_from"].to_numpy()
@@ -255,7 +258,7 @@ def fill_completion_date_across_versions(df: pd.DataFrame, log: CleaningLog) -> 
             log.add(codes[pos], pos, col, None, value, "filled_value",
                      "completion_date propagated from the nearest known value for this object")
 
-    df[col] = completion
+    return df.assign(**{col: completion})
 
 
 def clean_history(in_path: Path, out_path: Path, log_path: Path) -> None:
@@ -266,11 +269,10 @@ def clean_history(in_path: Path, out_path: Path, log_path: Path) -> None:
     log = CleaningLog()
     df = drop_invalid_identifiers(df, log)
 
-    null_out_of_codelist(df, load_codelists(), log)
-    null_out_of_range(df, log)
-    null_implausible_completion_dates(df, log)
-    fill_completion_date_across_versions(df, log)
-
+    df = null_out_of_codelist(df, load_codelists(), log)
+    df = null_out_of_range(df, log)
+    df = null_implausible_completion_dates(df, log)
+    df = fill_completion_date_across_versions(df, log)
 
     for col in GEOMETRY_COLS:
         df[f"{col}_wgs84"] = df[col].to_crs(WGS84_EPSG)
