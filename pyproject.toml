@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# plotting in the analysis notebooks (analyza/)
+# plotting in the analysis notebooks (analysis/)
 analysis = ["matplotlib>=3.10"]
 
 [tool.setuptools.packages.find]

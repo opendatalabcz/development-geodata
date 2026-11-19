@@ -2,8 +2,8 @@
 
 Data: `data/clean_output/brno_area_history_clean.parquet` (Brno a okolí, 30 obcí,
 vyčištěná verzovaná historie stavebních objektů z RÚIAN, snapshoty 2015-09 až 2026-08).
-Číselníky: `src/ruian_history/cleaning/codelists/`. Notebook: `analyza/analyticka_cast/analyticka_cast.ipynb`,
-obrázky do `analyza/analyticka_cast/obrazky/`.
+Číselníky: `src/ruian_history/cleaning/codelists/`. Notebook: `analysis/analyticka_cast/analyticka_cast.ipynb`,
+obrázky do `analysis/analyticka_cast/obrazky/`.
 
 ## 1. Charakteristika dat
 - Krátký odstavec: zdroj (RÚIAN VFR, měsíční snapshoty OB_UKSH), zpracování

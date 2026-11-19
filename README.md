@@ -16,5 +16,5 @@ Podrobnosti k pipelině (rozsah měsíců, navazování běhů, výstupy) jsou v
 
 - `src/ruian_history/pipeline/` – vlastní pipeline (stažení, parsování, historie, exporty)
 - `src/ruian_history/cleaning/` – čištění výstupu pipeliny ([README](src/ruian_history/cleaning/README.md)), včetně číselníků
-- `analyza/` – průzkumové notebooky, profiling zdrojových dat
+- `analysis/` – analytická část práce (`analyticka_cast/`) a profiling zdrojových dat (`data_profiling/`)
 - `research/` – poznámky ke zdrojům a datovým sadám
