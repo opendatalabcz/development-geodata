@@ -4,14 +4,17 @@ Bakalářská práce – sestavení verzované historie stavebních objektů z m
 snapshotů RÚIAN VFR (ČÚZK).
 
 ```
-pip install -r navrh/requirements.txt
-python -m navrh.pipeline.build_region --municipality 539309
+pip install -e .
+python -m ruian_history.pipeline.build_region --municipality 539309
 ```
 
-Podrobnosti k pipelině (rozsah měsíců, navazování běhů, výstupy) jsou v
-[navrh/pipeline/README.md](navrh/pipeline/README.md).
+Data (history state, exports, cleaned exports) goes to `./data/`; set
+`RUIAN_DATA_DIR` to use another directory.
 
-- `navrh/pipeline/` – vlastní pipeline (stažení, parsování, historie, exporty)
-- `navrh/cleaning/` – čištění výstupu pipeliny ([README](navrh/cleaning/README.md))
-- `analyza/` – průzkumové notebooky, profiling zdrojových dat, číselníky
+Podrobnosti k pipelině (rozsah měsíců, navazování běhů, výstupy) jsou v
+[src/ruian_history/pipeline/README.md](src/ruian_history/pipeline/README.md).
+
+- `src/ruian_history/pipeline/` – vlastní pipeline (stažení, parsování, historie, exporty)
+- `src/ruian_history/cleaning/` – čištění výstupu pipeliny ([README](src/ruian_history/cleaning/README.md)), včetně číselníků
+- `analysis/` – analytická část práce (`analyticka_cast/`) a profiling zdrojových dat (`data_profiling/`)
 - `research/` – poznámky ke zdrojům a datovým sadám

@@ -1,13 +1,10 @@
 __pycache__/
 *.pyc
 
+# data of the pipeline (history state, exports, cleaned exports, cleaning logs)
+/data/
 
-# pipeline outputs
-navrh/output/
-navrh/clean_output/
-
-# cleaning logs
-navrh/cleaning/logs/
-
-# downloaded history cache
-navrh/data/history/
+# packaging
+*.egg-info/
+build/
+dist/

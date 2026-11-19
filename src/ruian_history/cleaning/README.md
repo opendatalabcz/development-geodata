@@ -3,13 +3,13 @@
 Čistí GeoParquet z pipeliny podle pravidel níže:
 
 ```
-python -m navrh.cleaning.clean_history brno_area
+python -m ruian_history.cleaning.clean_history brno_area
 ```
 
-Vstup je `navrh/output/<jméno>_history.parquet`, výstup
-`navrh/clean_output/<jméno>_history_clean.parquet`. Záznam každého zásahu
+Vstup je `data/output/<jméno>_history.parquet`, výstup
+`data/clean_output/<jméno>_history_clean.parquet`. Záznam každého zásahu
 (smazaný řádek, vynulovaná nebo doplněná hodnota) jde do
-`navrh/cleaning/logs/<jméno>_cleaning_log.csv`.
+`data/cleaning_logs/<jméno>_cleaning_log.csv`.
 
 ## Princip
 

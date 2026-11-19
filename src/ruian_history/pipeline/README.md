@@ -7,7 +7,7 @@ Jediný vstupní bod je `build_region.py` – zvládne jednu obec, seznam obcí 
 celý pojmenovaný region (viz `regions.py`), vždy pro zvolený rozsah měsíců.
 
 ```
-pip install -r navrh/requirements.txt
+pip install -e .
 ```
 
 ## Spuštění (z kořene repozitáře)
@@ -15,19 +15,19 @@ pip install -r navrh/requirements.txt
 Celá dostupná historie jedné obce (Chýně):
 
 ```
-python -m navrh.pipeline.build_region --municipality 539309
+python -m ruian_history.pipeline.build_region --municipality 539309
 ```
 
 Jen jeden měsíc – pravidelné doplnění nově zveřejněného snapshotu:
 
 ```
-python -m navrh.pipeline.build_region --municipality 539309 --start 2026-7 --end 2026-7
+python -m ruian_history.pipeline.build_region --municipality 539309 --start 2026-7 --end 2026-7
 ```
 
 Celý region:
 
 ```
-python -m navrh.pipeline.build_region --region brno_area --workers 12
+python -m ruian_history.pipeline.build_region --region brno_area --workers 12
 ```
 
 ## Rozsah měsíců
@@ -46,7 +46,7 @@ stejný kód zpracuje snapshot z roku 2015 i z letoška.
 
 ## Navazování běhů
 
-Stav se pro každou obec ukládá zvlášť do `navrh/data/history/<kod>.parquet`,
+Stav se pro každou obec ukládá zvlášť do `data/history/<kod>.parquet`,
 takže běh jde kdykoliv přerušit a znovu spustit – co je hotové, se nestahuje
 znovu, a další běh s navazujícím rozsahem historii jen prodlouží.
 
@@ -101,7 +101,7 @@ výchozí rozsah od `201508` u nich funguje dál.
 
 ## Výstupy
 
-`navrh/output/<jméno>_history.parquet`, kde `<jméno>` je kód obce resp. jméno
+`data/output/<jméno>_history.parquet`, kde `<jméno>` je kód obce resp. jméno
 regionu (přepíše `--name`). Jde o GeoParquet: atributy i geometrie jsou v jedné
 tabulce, CRS (EPSG:5514) je v metadatech souboru, seznamové sloupce zůstávají
 seznamy a datumy jsou skutečné `date` (ne časové značky). Soubor se čte např.
@@ -110,7 +110,7 @@ seznamy a datumy jsou skutečné `date` (ne časové značky). Soubor se čte na
 ### Typy sloupců
 
 Typy se nastavují už v parseru (`vfr_parser.coerce_dtypes`), takže je má i
-průběžný stav v `navrh/data/history/`.
+průběžný stav v `data/history/`.
 
 | sloupce | typ |
 |---|---|

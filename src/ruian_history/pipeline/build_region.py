@@ -6,10 +6,10 @@ are processed in parallel worker processes, and a single combined GeoParquet exp
 is produced at the end.
 
 Usage (from the repository root):
-    python -m navrh.pipeline.build_region --municipality 539309
-    python -m navrh.pipeline.build_region --municipality 539309 --start 2026-7 --end 2026-7
-    python -m navrh.pipeline.build_region --region brno_area --workers 12 --delay 0.3
-    python -m navrh.pipeline.build_region --region brno_area --limit 10
+    python -m ruian_history.pipeline.build_region --municipality 539309
+    python -m ruian_history.pipeline.build_region --municipality 539309 --start 2026-7 --end 2026-7
+    python -m ruian_history.pipeline.build_region --region brno_area --workers 12 --delay 0.3
+    python -m ruian_history.pipeline.build_region --region brno_area --limit 10
 """
 
 from __future__ import annotations
@@ -19,12 +19,12 @@ import logging
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
 import requests
 
+from ..paths import HISTORY_DIR, OUTPUT_DIR
 from .download import (
     ARCHIVE_START,
     MonthListingCache,
@@ -42,10 +42,6 @@ from .vfr_parser import coerce_dtypes
 
 DELAY_S_DEFAULT = 0.3
 WORKERS_DEFAULT = 8
-
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = REPO_ROOT / "navrh" / "data" / "history"
-OUT_DIR = REPO_ROOT / "navrh" / "output"
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +96,7 @@ def _process_municipality(
     month, and return a per-month summary; the history itself is left in the
     municipality's state file. Runs in a worker process - the concurrency is
     across municipalities, not months."""
-    state_path = DATA_DIR / f"{municipality_code}.parquet"
+    state_path = HISTORY_DIR / f"{municipality_code}.parquet"
     state = HistoryState() if rebuild else HistoryState.load(state_path)
     already_done = set(state.processed_months)
     # skipped months (missing or damaged) are not tried again
@@ -239,7 +235,7 @@ def _check_range(municipalities: list[tuple[str, str, float]], months: list[str]
     gaps: dict[str, list[str]] = {}
     skipped: dict[str, list[str]] = {}
     for code, name, _dist in municipalities:
-        progress = HistoryState.load_progress(DATA_DIR / f"{code}.parquet")
+        progress = HistoryState.load_progress(HISTORY_DIR / f"{code}.parquet")
         where = f"{name} ({code})"
         stale = progress.out_of_order_months(months)
         if stale:
@@ -384,7 +380,7 @@ def main(
     # -- combined export ------------------------------------------------
     frames = []
     for r in results:
-        hist = coerce_dtypes(gpd.read_parquet(DATA_DIR / f"{r['municipality_code']}.parquet"))
+        hist = coerce_dtypes(gpd.read_parquet(HISTORY_DIR / f"{r['municipality_code']}.parquet"))
         if len(hist) > 0:
             frames.append(hist.assign(municipality_code=r["municipality_code"], municipality_name=r["name"]))
 
@@ -396,8 +392,8 @@ def main(
     combined = combined.sort_values(["municipality_code", "code", "valid_from"]).reset_index(drop=True)
 
     name = f"{export_name}_history"
-    write_geoparquet(combined, OUT_DIR / f"{name}.parquet")
-    write_csv_and_geojson(combined, OUT_DIR, name,
+    write_geoparquet(combined, OUTPUT_DIR / f"{name}.parquet")
+    write_csv_and_geojson(combined, OUTPUT_DIR, name,
                            keep_cols=["code", "municipality_code", "municipality_name",
                                       "valid_from", "valid_to", "end_reason"])
 
